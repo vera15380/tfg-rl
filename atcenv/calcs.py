@@ -189,7 +189,7 @@ def convert_angle(angle):
 
 
 def approx_angle(angle, angle_change):
-    # approximates angle to have multiples of 10.
+    # approximates angle to have multiples of angle_change.
     new_angle = math.ceil(angle / angle_change) * angle_change
     return new_angle
 
