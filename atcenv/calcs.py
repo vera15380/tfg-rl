@@ -194,7 +194,7 @@ def approx_angle(angle, angle_change):
     return new_angle
 
 
-def action_from_angle(angle, flight, angle_change):
+def action_from_angle(angle, flight, angle_change, num_actions):
     """TODO: revisar si está bien así"""
     if angle == 0:
         action = 0
@@ -205,4 +205,7 @@ def action_from_angle(angle, flight, angle_change):
         action = (angle * 2) // angle_change
         if action < 0:
             action = abs(action) + 1
+        if action > num_actions - 1:
+            # maximum turn
+            action = num_actions - 1
     return action

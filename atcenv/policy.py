@@ -67,7 +67,6 @@ def prediction_conflicts(max_dt, i, j, actions, env):
 
 
 def policy_action(observations, memory, env) -> List:
-    """TODO: acotar ángulo para acciones discretas. La func action_from_angle te la el num de la acción directamente"""
     actions = [0] * env.num_flights
     FirstStepConflict = [False] * env.num_flights
     InConflict = [False] * env.num_flights
@@ -109,7 +108,9 @@ def policy_action(observations, memory, env) -> List:
             list_i = FlightsInConflictWith[i]
             if not InConflict[i]:
                 """ NO CONFLICT --> drift angle"""
-                actions[i] = calcs.action_from_angle(env.flights[i].drift, env.flights[i], env.angle_change)
+                actions[i] = calcs.action_from_angle(env.flights[i].drift, env.flights[i], env.angle_change,
+                                                     env.num_discrete_actions)
+
 
             if InConflict[i]:
                 """ CONFLICT """
@@ -167,7 +168,9 @@ def policy_action(observations, memory, env) -> List:
                         # When two aircraft are approaching head-on or approximately so and there is danger of
                         # collision, each shall alter its heading to the right.
                         if abs(angle_i) < approach and abs(angle_j) < approach:
-                            actions[i] = calcs.action_from_angle(angle_safe_turn / 2, env.flights[i], env.angle_change)
+                            actions[i] = calcs.action_from_angle(angle_safe_turn / 2, env.flights[i], env.angle_change,
+                                                                 env.num_discrete_actions)
+
 
                         ##############
                         # CONVERGING #
@@ -180,16 +183,19 @@ def policy_action(observations, memory, env) -> List:
                                 if angle_j > 0:
                                     if env.flights[i].airspeed > env.flights[j].airspeed:
                                         actions[i] = calcs.action_from_angle(angle_safe_turn, env.flights[i],
-                                                                             env.angle_change)
+                                                                             env.angle_change, env.num_discrete_actions)
+
                                 else:
                                     actions[i] = calcs.action_from_angle(angle_safe_turn, env.flights[i],
-                                                                         env.angle_change)
+                                                                         env.angle_change, env.num_discrete_actions)
+
 
                             elif angle_i <= 0:
                                 if angle_j <= 0:
                                     if env.flights[i].airspeed > env.flights[j].airspeed:
                                         actions[i] = calcs.action_from_angle(angle_safe_turn, env.flights[i],
-                                                                             env.angle_change)
+                                                                             env.angle_change, env.num_discrete_actions)
+
 
                         ##############
                         # OVERTAKING #
@@ -201,7 +207,8 @@ def policy_action(observations, memory, env) -> List:
                         # In all circumstances, the faster flight that is overtaking shall give way
                         elif abs(angle_j) > converge or abs(angle_i) > converge:
                             if env.flights[i].airspeed > env.flights[j].airspeed:
-                                actions[i] = calcs.action_from_angle(angle_safe_turn, env.flights[i], env.angle_change)
+                                actions[i] = calcs.action_from_angle(angle_safe_turn, env.flights[i], env.angle_change,
+                                                                     env.num_discrete_actions)
 
                         # -------------------------------------------------------------------
 
@@ -224,7 +231,9 @@ def policy_action(observations, memory, env) -> List:
                             n += 1
 
                         """ The action of i will be the maximum between angles of closest flight and others """
-                        actions[i] = calcs.action_from_angle(max_multiple_angle, env.flights[i], env.angle_change)
+                        actions[i] = calcs.action_from_angle(max_multiple_angle, env.flights[i], env.angle_change,
+                                                             env.num_discrete_actions)
+
     return actions
 
 
