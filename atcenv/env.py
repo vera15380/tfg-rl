@@ -88,7 +88,7 @@ class Environment(gym.Env):
         self.action_space = []
         for agent in range(self.num_flights):
             self.observation_space.append(gym.spaces.Box(low=-np.inf, high=np.inf, shape=(10,), dtype=float))
-            self.action_space.append(gym.spaces.Discrete(self.num_discrete_actions))
+            self.action_space.append(gym.spaces.Box(low=(- u.circle / 2), high=(u.circle / 2), shape=(1,)))
 
     def resolution(self, action: List) -> None:
         """
