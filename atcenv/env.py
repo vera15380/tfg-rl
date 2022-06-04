@@ -125,7 +125,7 @@ class Environment(gym.Env):
         rew_array = []
         wot = 1.  # not in optimal track
         wtd = 0.5  # track deviation
-        wnt = -1
+        wnt = -100
         for i in range(self.num_flights):
             if i not in self.done:
                 # not in optimal track

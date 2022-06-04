@@ -18,14 +18,12 @@ if __name__ == "__main__":
     from atcenv.policy import *
     import numpy as np
 
-    MAX_MEMORY_SIZE = 100
-    BATCH_SIZE = 32
-    GAMMA = 0.95
+    MAX_MEMORY_SIZE = 1000
+    BATCH_SIZE = 100
+    GAMMA = 0.9
     TAU = 1
-    LR = 0.1
-    EXPLORATION_MAX = 0.9
-    EXPLORATION_MIN = 0.1
-    EXPLORATION_DECAY = 0.00001
+    LR = 0.001
+    EPSILON = 0.8
     TRAINING_EPISODES = 30
     HIDDEN_NEURONS = 256
     TARGET_UPDATE = 10
@@ -36,7 +34,7 @@ if __name__ == "__main__":
     if WANDB_USAGE:
         import wandb
         wandb.init(project="dqn", entity="tfg-wero-lidia",
-                   name='new graph with turns/step')
+                   name='extreme rew taking into account turns')
 
     parser = ArgumentParser(
         prog='Conflict resolution environment',
@@ -59,8 +57,8 @@ if __name__ == "__main__":
     Experience = collections.namedtuple('Experience', field_names=['states', 'actions', 'rewards', 'next_states'])
     if WANDB_USAGE:
         wandb.config.update({"max_memory_size": MAX_MEMORY_SIZE, "batch_size": BATCH_SIZE, "gamma": GAMMA, "tau": TAU,
-                             "lr": LR, "exploration_max": EXPLORATION_MAX, "exploration_min": EXPLORATION_MIN,
-                             "exploration_decay": EXPLORATION_DECAY, "training_episodes": TRAINING_EPISODES,
+                             "lr": LR, "exploration_max": EPSILON, "MAX_EPISODES": args.episodes,
+                             "exploration_decay": EPSILON, "training_episodes": TRAINING_EPISODES,
                              "hidden_neurons": HIDDEN_NEURONS, "n_neighbours": env.n_neighbours})
 
     do_nothing = [0] * comparison_env.num_flights
@@ -89,8 +87,8 @@ if __name__ == "__main__":
         env.close()
 
     print('\n*** Replay Buffer is now full ***')
-    dqn = rl.DQN(MAX_MEMORY_SIZE, BATCH_SIZE, GAMMA, TAU, LR, EXPLORATION_MAX, EXPLORATION_MIN, EXPLORATION_DECAY, env,
-                 replay_buffer, HIDDEN_NEURONS, target_update=TARGET_UPDATE)
+    dqn = rl.DQN(MAX_MEMORY_SIZE, BATCH_SIZE, GAMMA, TAU, LR, EPSILON, env, replay_buffer, HIDDEN_NEURONS,
+                 max_episodes=args.episodes, target_update=TARGET_UPDATE)
 
     print('\n Training the DQN model with experience.')
     for e in tqdm(range(TRAINING_EPISODES)):
@@ -98,6 +96,7 @@ if __name__ == "__main__":
 
     print('\n DQN training while adding new experiences.')
     for e in tqdm(range(args.episodes)):
+        n_turns_episode = 0
         obs = env.reset()
         c_obs = comparison_env.reset()
         done = False
@@ -107,7 +106,7 @@ if __name__ == "__main__":
             previous_distances = env.distances_matrix()
             actions = []
             for i in range(env.num_flights):
-                action = dqn.select_action(obs)
+                action = dqn.select_action(obs, e)
                 actions.append(action)
             rew, next_obs, done = env.step(actions)
             rew_episode += np.average(rew)
@@ -129,12 +128,13 @@ if __name__ == "__main__":
                 time.sleep(0.01)
 
             if WANDB_USAGE:
+                n_turns_step = sum(env.flights[i].n_turns for i in range(env.num_flights))
+                n_turns_episode += n_turns_step
                 wandb.log({'[CONFLICTS] - conflicts/step with policy': env.n_conflicts_step,
                            '[CONFLICTS] - conflicts/step without policy': comparison_env.n_conflicts_step,
                            '[CONFLICTS] - n_aircraft in conflict/step': len(env.conflicts),
-                           '[NN PARAMS] - exploration rate': dqn.exploration_rate,
                            '[REWARD] - avg rew/step': np.average(rew),
-                           '[EXTRA] - n_turns taken/step': sum(env.flights[i].n_turns for i in range(env.num_flights))})
+                           '[EXTRA] - n_turns taken/step': n_turns_step})
                 if loss is not np.NaN:
                     wandb.log({'[NN PARAMS] - policy loss/step': loss})
 
@@ -152,6 +152,7 @@ if __name__ == "__main__":
                        '[REWARD] - avg rew/episode': rew_episode,
                        '[EXTRA] - extra distance': sum(env.flights[i].actual_distance-env.flights[i].planned_distance
                                                        for i in range(env.num_flights)),
+                       '[EXTRA] - n_turns taken/episode': n_turns_episode,
                        '[CONFLICTS] - real conflicts/episode': n_real_conflicts_episode_without_policy})
         env.close()
         comparison_env.close()

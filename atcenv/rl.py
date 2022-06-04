@@ -60,9 +60,8 @@ class NeuralNetwork(nn.Module):
 
 
 class DQN:
-    def __init__(self, max_memory_size, batch_size, gamma, tau, lr,
-                 exploration_max, exploration_min, exploration_decay, env, replay_buffer, hidden_neurons, target_update,
-                 trained_net=None):
+    def __init__(self, max_memory_size, batch_size, gamma, tau, lr, epsilon, env, replay_buffer, hidden_neurons,
+                 target_update, max_episodes, trained_net=None):
         """
         Initializes the network and parameters needed for DQN policy.
 
@@ -72,9 +71,6 @@ class DQN:
             gamma: long term reward (1) or short term reward focus (0) (range from 0 to 1)
             tau:
             lr: learning rate of the optimizer. How quickly the neural network updates the concepts it has learned.
-            exploration_max: also called epsilon max. Controls the max EXPLORATION.
-            exploration_min: also called epsilon min. Controls the max EXPLOITATION.
-            exploration_decay: also called epsilon decay. Controls how fast nn go from exploration to exploitation.
         """
         self.obs_dim = env.observation_space[0].shape[0]
         self.action_size = env.action_space[0].n
@@ -82,11 +78,8 @@ class DQN:
         self.n_steps = 0
         self.gamma = gamma
         self.tau = tau
-        self.exploration_max = exploration_max
-        self.exploration_min = exploration_min
-        self.exploration_decay = exploration_decay
-        self.exploration_rate = exploration_max
-
+        self.epsilon = epsilon
+        self.max_episodes = max_episodes
         self.replay_buffer = replay_buffer
         self.memory_sample_size = batch_size
         self.target_update = target_update
@@ -99,12 +92,11 @@ class DQN:
         self.optimizer = torch.optim.Adam(self.policy_net.parameters(), lr)
         self.loss_func = torch.nn.SmoothL1Loss()
 
-    def select_action(self, obs):
+    def select_action(self, obs, episode):
         # epsilon greedy strategy
-        self.exploration_rate = self.exploration_min + (self.exploration_max - self.exploration_min) * \
-                                math.exp(-1. * self.n_steps * self.exploration_decay)
+        greedy = self.epsilon + (1 - self.epsilon) * (episode + 1) / self.max_episodes
 
-        if random.random() > self.exploration_rate:
+        if random.random() > greedy:
             q_eval = self.policy_net.forward(torch.Tensor(obs))
             action = q_eval[0].max(0)[1].cpu().data.item()
         else:
