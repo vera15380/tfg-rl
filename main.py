@@ -130,13 +130,14 @@ if __name__ == "__main__":
             if WANDB_USAGE:
                 n_turns_step = sum(env.flights[i].n_turns for i in range(env.num_flights))
                 n_turns_episode += n_turns_step
+                if env.i == env.max_episode_len:
+                    distance_left_to_target = sum(env.flights[i].position.distance(env.flights[i].target) for i in
+                                                  range(env.num_flights))
                 wandb.log({'[CONFLICTS] - conflicts/step with policy': env.n_conflicts_step,
                            '[CONFLICTS] - conflicts/step without policy': comparison_env.n_conflicts_step,
                            '[CONFLICTS] - n_aircraft in conflict/step': len(env.conflicts),
                            '[REWARD] - avg rew/step': np.average(rew),
                            '[EXTRA] - n_turns taken/step': n_turns_step})
-                if loss is not np.NaN:
-                    wandb.log({'[NN PARAMS] - policy loss/step': loss})
 
         if WANDB_USAGE:
             n_real_conflicts_episode = 0
@@ -153,7 +154,8 @@ if __name__ == "__main__":
                        '[EXTRA] - extra distance': sum(env.flights[i].actual_distance-env.flights[i].planned_distance
                                                        for i in range(env.num_flights)),
                        '[EXTRA] - n_turns taken/episode': n_turns_episode,
-                       '[CONFLICTS] - real conflicts/episode': n_real_conflicts_episode_without_policy})
+                       '[CONFLICTS] - real conflicts/episode': n_real_conflicts_episode_without_policy,
+                       '[EXTRA] - distance left to target/episode': distance_left_to_target})
         env.close()
         comparison_env.close()
 
