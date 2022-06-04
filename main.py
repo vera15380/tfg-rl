@@ -18,7 +18,7 @@ if __name__ == "__main__":
     from atcenv.policy import *
     import numpy as np
 
-    MAX_MEMORY_SIZE = 105
+    MAX_MEMORY_SIZE = 100
     BATCH_SIZE = 32
     GAMMA = 0.95
     TAU = 1
@@ -36,7 +36,7 @@ if __name__ == "__main__":
     if WANDB_USAGE:
         import wandb
         wandb.init(project="dqn", entity="tfg-wero-lidia",
-                   name='testing with new policy')
+                   name='new graph with turns/step')
 
     parser = ArgumentParser(
         prog='Conflict resolution environment',
@@ -103,6 +103,7 @@ if __name__ == "__main__":
         done = False
         rew_episode = 0
         while not done:
+            loss = np.NaN
             previous_distances = env.distances_matrix()
             actions = []
             for i in range(env.num_flights):
@@ -118,7 +119,7 @@ if __name__ == "__main__":
                     replay_buffer.append(experience)
 
             if len(replay_buffer.buffer) > MAX_MEMORY_SIZE:
-                dqn.learn()
+                loss = dqn.learn()
             short_exp = Experience(previous_distances, actions, do_nothing, do_nothing)
             short_memo.append(short_exp)
             obs = next_obs
@@ -128,11 +129,15 @@ if __name__ == "__main__":
                 time.sleep(0.01)
 
             if WANDB_USAGE:
-                wandb.log({'conflicts/step with policy': env.n_conflicts_step,
-                           'conflicts/step without policy': comparison_env.n_conflicts_step,
-                           'n_aircraft in conflict/step': len(env.conflicts),
-                           'exploration rate': dqn.exploration_rate,
-                           'avg rew/step': np.average(rew)})
+                wandb.log({'[CONFLICTS] - conflicts/step with policy': env.n_conflicts_step,
+                           '[CONFLICTS] - conflicts/step without policy': comparison_env.n_conflicts_step,
+                           '[CONFLICTS] - n_aircraft in conflict/step': len(env.conflicts),
+                           '[NN PARAMS] - exploration rate': dqn.exploration_rate,
+                           '[REWARD] - avg rew/step': np.average(rew),
+                           '[EXTRA] - n_turns taken/step': sum(env.flights[i].n_turns for i in range(env.num_flights))})
+                if loss is not np.NaN:
+                    wandb.log({'[NN PARAMS] - policy loss/step': loss})
+
         if WANDB_USAGE:
             n_real_conflicts_episode = 0
             n_real_conflicts_episode_without_policy = 0
@@ -142,12 +147,12 @@ if __name__ == "__main__":
                         n_real_conflicts_episode += 1
                     if comparison_env.matrix_real_conflicts_episode[i, j]:
                         n_real_conflicts_episode_without_policy += 1
-            wandb.log({'conflicts/episode with policy': env.n_conflicts_episode,
-                       'conflicts/episode without policy': comparison_env.n_conflicts_episode,
-                       'avg rew/episode': rew_episode,
-                       'extra distance': sum(env.flights[i].actual_distance-env.flights[i].planned_distance for i in
-                                             range(env.num_flights)),
-                       'real conflicts/episode': n_real_conflicts_episode_without_policy})
+            wandb.log({'[CONFLICTS] - conflicts/episode with policy': env.n_conflicts_episode,
+                       '[CONFLICTS] - conflicts/episode without policy': comparison_env.n_conflicts_episode,
+                       '[REWARD] - avg rew/episode': rew_episode,
+                       '[EXTRA] - extra distance': sum(env.flights[i].actual_distance-env.flights[i].planned_distance
+                                                       for i in range(env.num_flights)),
+                       '[CONFLICTS] - real conflicts/episode': n_real_conflicts_episode_without_policy})
         env.close()
         comparison_env.close()
 

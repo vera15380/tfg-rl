@@ -56,6 +56,7 @@ class Flight:
     track: float = field(init=False)
     planned_distance: float = field(init=False)
     actual_distance: float = 0
+    n_turns: int = 0
     turning: int = 0
     speeding: int = 0
     is_in_conflict: int = 0

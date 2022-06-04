@@ -2,8 +2,7 @@
 Environment module
 """
 import gym
-import collections
-from typing import Dict, List
+from typing import List
 from atcenv.definitions import *
 from gym.envs.classic_control import rendering
 from shapely.geometry import LineString
@@ -11,7 +10,7 @@ from shapely.geometry import LineString
 from . import *
 import numpy as np
 
-from . import policy, calcs
+from . import calcs
 
 WHITE = [255, 255, 255]
 GREEN = [0, 255, 0]
@@ -103,15 +102,18 @@ class Environment(gym.Env):
         for f, j in zip(self.flights, action):
             k = 1
             if j == 0:
+                f.n_turns = 0
                 continue
             elif j == 1:
                 f.track = f.bearing
+                f.n_turns = 1
             else:
                 # angle change is the change we apply to the track. If it's 10 then the intervals will be spaced 10º,
                 # if it's 5º they are gonna be 5º, 10º, 15º...
                 if j % 2 != 0:
                     k = -1
                 turn_angle = (j // 2) * self.angle_change * k
+                f.n_turns = 1
                 f.track += turn_angle
         return None
 
@@ -123,10 +125,12 @@ class Environment(gym.Env):
         rew_array = []
         wot = 1.  # not in optimal track
         wtd = 0.5  # track deviation
+        wnt = -1
         for i in range(self.num_flights):
             if i not in self.done:
                 # not in optimal track
                 track_penalty = 0
+                n_turn_penalty = self.flights[i].n_turns * wnt
                 if abs(self.flights[i].drift) > 1e-3:
                     t_ei = abs(self.flights[i].drift) / math.pi
                     track_penalty = - wot - wtd * t_ei
@@ -138,7 +142,7 @@ class Environment(gym.Env):
                         if abs(self.flights[i].position.distance(self.flights[k].position)) >= self.min_distance:
                             wc = 0
                         conflicts_penalty -= wc
-                reward = track_penalty + conflicts_penalty
+                reward = track_penalty + conflicts_penalty + n_turn_penalty
                 rew_array.append(reward)
             else:
                 rew_array.append(np.NaN)
@@ -169,7 +173,7 @@ class Environment(gym.Env):
         parameters = [t_cpa, d_cpa, rel_distance, rel_angle, rel_airspeed]
         return parameters
 
-    def observation(self) -> List:
+    def observation(self) -> np.ndarray:
         """
         Returns the observation of each agent
         :return: observation of each agent
@@ -273,7 +277,7 @@ class Environment(gym.Env):
                 # compute actual trajectory length
                 f.actual_distance += ((dx * self.dt) ** 2 + (dy * self.dt) ** 2) ** 0.5
 
-    def step(self, action: List) -> Tuple[List, List, bool]:
+    def step(self, action: List) -> Tuple[List, np.ndarray, bool]:
         """
         Performs a simulation step
 
@@ -313,7 +317,7 @@ class Environment(gym.Env):
 
         return rew, obs, done
 
-    def reset(self) -> List:
+    def reset(self) -> np.ndarray:
         """
         Resets the environment and returns initial observation
         :return: initial observation
@@ -393,8 +397,7 @@ class Environment(gym.Env):
             circle = rendering.make_circle(radius=self.min_distance / 2.0,
                                            res=10,
                                            filled=False)
-            circle.add_attr(rendering.Transform(translation=(f.position.x,
-                                                            f.position.y)))
+            circle.add_attr(rendering.Transform(translation=(f.position.x, f.position.y)))
             circle.set_color(*BLUE)
 
             alert_zone_circle = rendering.make_circle(radius=self.alert_distance / 2.0,
@@ -512,4 +515,3 @@ class Environment(gym.Env):
                     distance_to_flight = self.flights[i].position.distance(self.flights[j].position)
                     dist[i, j] = distance_to_flight
         return dist
-
