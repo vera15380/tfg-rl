@@ -100,16 +100,8 @@ class Environment(gym.Env):
         """
 
         for f, j in zip(self.flights, action):
-            if j == 0:  # recover bearing
-                f.track = f.bearing
-
-            elif j == 1:  # turn right (+45 deg)
-                f.track = f.bearing + u.circle / 8
-                f.track = f.track % u.circle
-
-            elif j == 2:  # turn left (+45 deg)
-                f.track = f.bearing - u.circle / 8
-                f.track = f.track % u.circle
+            # j: action chosen of each flight
+            f.track = f.track + j
 
         return None
 
