@@ -195,7 +195,6 @@ def approx_angle(angle, angle_change):
 
 
 def action_from_angle(angle, flight, angle_change, num_actions):
-    """TODO: revisar si está bien así"""
     if angle == 0:
         action = 0
     elif angle == flight.drift:
