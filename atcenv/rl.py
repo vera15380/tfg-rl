@@ -35,6 +35,10 @@ class ReplayBuffer:
             np.array(next_states),
         )
 
+    def pop(self):
+        states, actions, rewards, next_states = self.buffer.pop()
+        return np.array(states), np.array(actions)
+
 
 class NeuralNetwork(nn.Module):
     def __init__(self, n_obs_individual, n_output, n_hidden):
