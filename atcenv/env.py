@@ -141,7 +141,10 @@ class Environment(gym.Env):
             else:
                 rew_array.append(np.NaN)
         rew_without_nan = [x for x in rew_array if np.isnan(x) == False]
-        rew_array = [np.average(rew_without_nan)] * self.num_flights
+        if len(rew_without_nan) != 0:
+            rew_array = [np.average(rew_without_nan)] * self.num_flights
+        else:
+            rew_array = [0] * self.num_flights
         return rew_array
 
     def relative_obs_parameters(self, i: int, j: int) -> List:
@@ -194,7 +197,6 @@ class Environment(gym.Env):
                 final_agent_observation = [np.NaN] * self.observation_space[i].shape[0]
             # Add the final observation for the agent
             obs_array.append(final_agent_observation)
-            # obs_array.append(self.flights[i].position.distance(self.flights[i].target))
         return np.array(obs_array)
 
     def update_conflicts(self) -> None:
