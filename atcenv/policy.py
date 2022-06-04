@@ -67,6 +67,7 @@ def prediction_conflicts(max_dt, i, j, actions, env):
 
 
 def policy_action(observations, memory, env) -> List:
+    """TODO: acotar ángulo para acciones discretas. La func action_from_angle te la el num de la acción directamente"""
     actions = [0] * env.num_flights
     FirstStepConflict = [False] * env.num_flights
     InConflict = [False] * env.num_flights

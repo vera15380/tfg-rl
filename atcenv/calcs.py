@@ -188,21 +188,21 @@ def convert_angle(angle):
     return angle
 
 
-def approx_angle(angle):
+def approx_angle(angle, angle_change):
     # approximates angle to have multiples of 10.
-    new_angle = math.ceil(angle / 10) * 10
+    new_angle = math.ceil(angle / angle_change) * angle_change
     return new_angle
 
 
-def action_from_angle(angle, flight, turn_intensity):
+def action_from_angle(angle, flight, angle_change):
+    """TODO: revisar si está bien así"""
     if angle == 0:
         action = 0
-    elif angle == flight.bearing - flight.track:
-        """TODO: idk si es del reves"""
+    elif angle == flight.drift:
         action = 1
     else:
-        angle = approx_angle(angle)
-        action = (angle * 2) / 10
+        angle = approx_angle(angle, angle_change)
+        action = (angle * 2) // angle_change
         if action < 0:
             action = abs(action) + 1
     return action

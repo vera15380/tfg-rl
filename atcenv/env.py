@@ -100,9 +100,17 @@ class Environment(gym.Env):
         """
 
         for f, j in zip(self.flights, action):
-            # j: action chosen of each flight
-            f.track = f.track + j
-
+            k = 1
+            if j == 0:
+                continue
+            elif j == 1:
+                f.track = f.bearing
+            else:
+                # angle change is the change we apply to the track. If it's 10 then the intervals will be spaced 10º,
+                # if it's 5º they are gonna be 5º, 10º, 15º...
+                if j % 2 != 0:
+                    k = -1
+                f.track += (j // 2) * self.angle_change * k
         return None
 
     def reward(self) -> List:
