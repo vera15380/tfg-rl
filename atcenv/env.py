@@ -208,6 +208,7 @@ class Environment(gym.Env):
                             self.conflicts.update((i, j))
                             self.n_conflicts_step += 1
                             self.n_conflicts_episode += 1
+                            self.matrix_real_conflicts_episode[i, j] = True
 
     def update_alerts(self) -> None:
         """
