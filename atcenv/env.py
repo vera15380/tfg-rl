@@ -3,7 +3,7 @@ Environment module
 """
 import gym
 import collections
-from typing import Dict, List
+from typing import List
 from atcenv.definitions import *
 from gym.envs.classic_control import rendering
 from shapely.geometry import LineString
