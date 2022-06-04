@@ -39,6 +39,51 @@ def d_cpa(env, i: int, j: int) -> float:
     return dcpa
 
 
+def t_cpa_bearing(env, i: int, j: int) -> float:
+    """
+    Time to get the closest point of approach of a flight i to j following its bearing
+    :return: time to the closest point of approach, done with straight formula
+    """
+    track_i = env.flights[i].track + env.flights[i].drift
+    track_j = env.flights[j].track + env.flights[j].drift
+
+    """ Computing relative velocity contemplating bearing """
+    dx = env.flights[j].position.x - env.flights[i].position.x
+    dy = env.flights[j].position.y - env.flights[i].position.y
+
+    """ Computing relative velocity contemplating track --> x """
+    vrx = env.flights[j].airspeed * math.sin(track_j) - env.flights[i].airspeed * math.sin(track_i)
+    vry = env.flights[j].airspeed * math.cos(track_j) - env.flights[i].airspeed * math.cos(track_i)
+
+    if i == j:
+        tcpa_bearing = 0
+    else:
+        tcpa_bearing = max(0, -(dx * vrx + dy * vry) / (vrx ** 2 + vry ** 2))
+
+    return tcpa_bearing
+
+
+def d_cpa_bearing(env, i: int, j: int) -> float:
+    """
+    Distance to get the closest point of approach of a flight i to j following its bearing
+    :return: distance to the closest point of approach
+    """
+    track_i = env.flights[i].track + env.flights[i].drift
+    track_j = env.flights[j].track + env.flights[j].drift
+    dx = env.flights[j].position.x - env.flights[i].position.x
+    dy = env.flights[j].position.y - env.flights[i].position.y
+    vrx = env.flights[j].airspeed * math.sin(track_j) - env.flights[i].airspeed * math.sin(track_i)
+    vry = env.flights[j].airspeed * math.cos(track_j) - env.flights[i].airspeed * math.cos(track_i)
+
+    if i == j:
+        dcpa_bearing = 0
+    else:
+        tcpa = t_cpa_bearing(env, i, j)
+        dcpa_bearing = math.sqrt((dx + vrx * tcpa) ** 2 + (dy + vry * tcpa) ** 2)
+
+    return dcpa_bearing
+
+
 def safe_turn_angle(env, i: int, j: int) -> float:
     """
     def function(angle):
