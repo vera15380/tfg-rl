@@ -135,11 +135,20 @@ if __name__ == "__main__":
                            'exploration rate': dqn.exploration_rate,
                            'avg rew/step': np.average(rew)})
         if WANDB_USAGE:
+            n_real_conflicts_episode = 0
+            n_real_conflicts_episode_without_policy = 0
+            for i in range(env.num_flights):
+                for j in range(env.num_flights):
+                    if env.matrix_real_conflicts_episode[i, j]:
+                        n_real_conflicts_episode += 1
+                    if comparison_env.matrix_real_conflicts_episode[i, j]:
+                        n_real_conflicts_episode_without_policy += 1
             wandb.log({'conflicts/episode with policy': env.n_conflicts_episode,
                        'conflicts/episode without policy': comparison_env.n_conflicts_episode,
                        'avg rew/episode': rew_episode,
                        'extra distance': sum(env.flights[i].actual_distance-env.flights[i].planned_distance for i in
-                                             range(env.num_flights))})
+                                             range(env.num_flights)),
+                       'real conflicts/episode': n_real_conflicts_episode_without_policy})
         env.close()
         comparison_env.close()
 
