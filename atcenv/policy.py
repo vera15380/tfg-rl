@@ -3,7 +3,7 @@ Policy module
 """
 
 from typing import List
-
+import Point as Point
 from atcenv import calcs
 from atcenv.definitions import *
 
@@ -73,26 +73,27 @@ def policy_action(observations, memory, env) -> List:
     previous_distances, previous_actions = memory.pop()
     current_distances = env.distances_matrix()
 
-    """ Creating a matrix with ALL flights and its closest conflicts ordered by time, and actualizing conflict parameters """
+    """ Creating a matrix with ALL flights and its closest conflicts ordered by time, and updating conflict params """
     FlightsInConflictWith = []
     for i in range(env.num_flights):
         num = []
         time = []
         for j in range(env.num_flights):
             if i not in env.done and j not in env.done and i != j:
-                tcpa = t_cpa(env, i, j)
-                dcpa = d_cpa(env, i, j)
-                tcpa_bearing = t_cpa_bearing(env, i, j)
-                dcpa_bearing = d_cpa_bearing(env, i, j)
-                if (tcpa < 120 and dcpa < env.alert_distance and previous_distances[i, j] > env.alert_distance) or (
-                        current_distances[i, j] < env.alert_distance and env.alert_distance < previous_distances[i, j]):
+                tcpa = calcs.t_cpa(env, i, j)
+                dcpa = calcs.d_cpa(env, i, j)
+                tcpa_bearing = calcs.t_cpa_bearing(env, i, j)
+                dcpa_bearing = calcs.d_cpa_bearing(env, i, j)
+                if (tcpa < 120 and dcpa < env.alert_distance < previous_distances[i, j]) or (
+                        current_distances[i, j] < env.alert_distance < previous_distances[i, j]):
                     InConflict[i] = True
                     FirstStepConflict[i] = True
                     FirstStepConflict[j] = True
                     time.append(tcpa)
                     num.append(j)
                 else:
-                    if (tcpa_bearing < 120 and dcpa_bearing < env.alert_distance) or current_distances[i, j] < env.alert_distance:
+                    if (tcpa_bearing < 120 and dcpa_bearing < env.alert_distance) or current_distances[i, j] < \
+                            env.alert_distance:
                         InConflict[i] = True
                         time.append(tcpa_bearing)
                         num.append(j)
@@ -120,12 +121,12 @@ def policy_action(observations, memory, env) -> List:
 
                     """ Solving the most important conflict: The closest conflict in terms of time (tcpa) """
                     j = list_i[0]
-                    angle_safe_turn = safe_turn_angle(env, i, j)
+                    angle_safe_turn = calcs.safe_turn_angle(env, i, j)
 
                     if env.airspace.polygon.contains(env.flights[i].position) and env.airspace.polygon.contains(
                             env.flights[j].position):
 
-                        """ Computing the angle formed by the position of the intruder flight in respect of it's own track """
+                        """ Computing the angle formed by the position of the intruder respect of its own track """
                         # -------------------------------------------------------------------
                         """ Respect to flight: i """
                         dx_i = env.flights[j].position.x - env.flights[i].position.x
@@ -190,16 +191,15 @@ def policy_action(observations, memory, env) -> List:
                         # OVERTAKING #
                         ##############
                         # An aircraft that is being overtaken has the right-of-way and the overtaking aircraft
-                        # shall keep out of the way of the other aircraft by altering its heading to the right, and no subsequent change in the relative positions of
-                        # the two aircraft shall absolve the overtaking aircraft from this obligation until it is entirely past and clear
+                        # shall keep out of the way of the other aircraft by altering its heading to the right, and no
+                        # subsequent change in the relative positions of the two aircraft shall absolve the overtaking
+                        # aircraft from this obligation until it is entirely past and clear.
                         # In all circumstances, the faster flight that is overtaking shall give way
                         elif abs(angle_j) > converge or abs(angle_i) > converge:
 
                             if env.flights[i].airspeed > env.flights[j].airspeed:
                                 actions[i] = angle_safe_turn
 
-                            # if env.flights[i].airspeed < env.flights[j].airspeed:
-                            # print('Flight i is overtaking flight j but going slower')
                         # -------------------------------------------------------------------
 
                     if len(list_i) > 1:
@@ -209,7 +209,7 @@ def policy_action(observations, memory, env) -> List:
                         n = 1
                         while n < len(list_i):
                             k = list_i[n]
-                            angle_safe_turn_multiple = safe_turn_angle(env, i, k)
+                            angle_safe_turn_multiple = calcs.safe_turn_angle(env, i, k)
 
                             max_multiple_angle = max(abs(previous_angle), abs(angle_safe_turn_multiple))
                             if max_multiple_angle == abs(previous_angle):
@@ -222,9 +222,10 @@ def policy_action(observations, memory, env) -> List:
 
                         """ The action of i will be the maximum between angles of closest flight and others """
                         actions[i] = max_multiple_angle
-                        # -------------------------------------------------------------------
 
-    return
+    return actions
+
+
 
 
 
