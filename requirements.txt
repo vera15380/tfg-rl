@@ -1,0 +1,10 @@
+jsonargparse==4.1.4
+gym==0.18.3
+dataclasses==0.6
+shapely==1.7.1
+tqdm==4.62.3
+torch==1.11.0
+pyglet==1.5.15
+numpy~=1.21.2
+wandb~=0.12.16
+setuptools~=45.2.0
