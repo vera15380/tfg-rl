@@ -2,10 +2,9 @@
 Example
 """
 import time
-
 import torch
 
-WANDB_USAGE = False
+WANDB_USAGE = True
 WANDB_NOTEBOOK_NAME = "tfg-wero-lidia"
 
 if __name__ == "__main__":
@@ -19,7 +18,7 @@ if __name__ == "__main__":
     from atcenv.policy import *
     import numpy as np
 
-    MAX_MEMORY_SIZE = 100
+    MAX_MEMORY_SIZE = 1000
     BATCH_SIZE = 32
     GAMMA = 0.95
     TAU = 1
@@ -32,12 +31,12 @@ if __name__ == "__main__":
     TARGET_UPDATE = 10
     RENDERING_FREQUENCY = 1
     SHORT_MEMORY_SIZE = 2
-    render = True
+    render = False
 
     if WANDB_USAGE:
         import wandb
         wandb.init(project="dqn", entity="tfg-wero-lidia",
-                   name='testing new graph')
+                   name='testing with new policy')
 
     parser = ArgumentParser(
         prog='Conflict resolution environment',
@@ -45,7 +44,7 @@ if __name__ == "__main__":
         print_config='--print_config',
         parser_mode='yaml'
     )
-    parser.add_argument('--episodes', type=int, default=10)
+    parser.add_argument('--episodes', type=int, default=1000)
     parser.add_argument('--config', action=ActionConfigFile)
     parser.add_class_arguments(Environment, 'env')
 

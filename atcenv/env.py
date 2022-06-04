@@ -35,7 +35,7 @@ class Environment(gym.Env):
                  min_distance: Optional[float] = 5.,
                  alert_distance: Optional[float] = 15.,
                  distance_init_buffer: Optional[float] = 5.,
-                 angle_change: Optional[int] = 10,
+                 angle_change: Optional[int] = 5,
                  **kwargs):
         """
         Initialises the environment
@@ -83,7 +83,7 @@ class Environment(gym.Env):
 
         # reinforcement learning-related
         self.n_neighbours = 2
-        self.num_discrete_actions = 16
+        self.num_discrete_actions = 20
         self.observation_space = []
         self.action_space = []
         for agent in range(self.num_flights):

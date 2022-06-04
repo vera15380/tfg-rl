@@ -3,7 +3,7 @@ Policy module
 """
 
 from typing import List
-import shapely.geometry.point as Point
+from shapely.geometry import Point
 from atcenv import calcs
 from atcenv.definitions import *
 
