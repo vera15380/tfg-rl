@@ -333,6 +333,7 @@ class Environment(gym.Env):
         self.done = set()
         self.n_conflicts_step = 0
         self.n_conflicts_episode = 0
+        self.matrix_real_conflicts_episode = np.full((self.num_flights, self.num_flights), False)
         # return initial observation
         return self.observation()
 
