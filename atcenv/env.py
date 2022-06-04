@@ -78,7 +78,7 @@ class Environment(gym.Env):
         self.n_conflicts_episode = 0
 
         # human policy-related
-        self.angle_change = angle_change
+        self.angle_change = angle_change * u.circle / 360
         self.matrix_real_conflicts_episode = np.full((self.num_flights, self.num_flights), False)
 
         # reinforcement learning-related
@@ -110,7 +110,8 @@ class Environment(gym.Env):
                 # if it's 5º they are gonna be 5º, 10º, 15º...
                 if j % 2 != 0:
                     k = -1
-                f.track += (j // 2) * self.angle_change * k
+                turn_angle = (j // 2) * self.angle_change * k
+                f.track += turn_angle
         return None
 
     def reward(self) -> List:

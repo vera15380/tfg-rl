@@ -108,8 +108,8 @@ def policy_action(observations, memory, env) -> List:
 
             list_i = FlightsInConflictWith[i]
             if not InConflict[i]:
-                """ NO CONFLICT """
-                actions[i] = env.flights[i].drift
+                """ NO CONFLICT --> drift angle"""
+                actions[i] = calcs.action_from_angle(env.flights[i].drift, env.flights[i], env.angle_change)
 
             if InConflict[i]:
                 """ CONFLICT """
@@ -167,7 +167,7 @@ def policy_action(observations, memory, env) -> List:
                         # When two aircraft are approaching head-on or approximately so and there is danger of
                         # collision, each shall alter its heading to the right.
                         if abs(angle_i) < approach and abs(angle_j) < approach:
-                            actions[i] = angle_safe_turn / 2
+                            actions[i] = calcs.action_from_angle(angle_safe_turn / 2, env.flights[i], env.angle_change)
 
                         ##############
                         # CONVERGING #
@@ -179,14 +179,17 @@ def policy_action(observations, memory, env) -> List:
                             if angle_i > 0:
                                 if angle_j > 0:
                                     if env.flights[i].airspeed > env.flights[j].airspeed:
-                                        actions[i] = angle_safe_turn
+                                        actions[i] = calcs.action_from_angle(angle_safe_turn, env.flights[i],
+                                                                             env.angle_change)
                                 else:
-                                    actions[i] = angle_safe_turn
+                                    actions[i] = calcs.action_from_angle(angle_safe_turn, env.flights[i],
+                                                                         env.angle_change)
 
                             elif angle_i <= 0:
                                 if angle_j <= 0:
                                     if env.flights[i].airspeed > env.flights[j].airspeed:
-                                        actions[i] = angle_safe_turn
+                                        actions[i] = calcs.action_from_angle(angle_safe_turn, env.flights[i],
+                                                                             env.angle_change)
 
                         ##############
                         # OVERTAKING #
@@ -197,9 +200,8 @@ def policy_action(observations, memory, env) -> List:
                         # aircraft from this obligation until it is entirely past and clear.
                         # In all circumstances, the faster flight that is overtaking shall give way
                         elif abs(angle_j) > converge or abs(angle_i) > converge:
-
                             if env.flights[i].airspeed > env.flights[j].airspeed:
-                                actions[i] = angle_safe_turn
+                                actions[i] = calcs.action_from_angle(angle_safe_turn, env.flights[i], env.angle_change)
 
                         # -------------------------------------------------------------------
 
@@ -222,8 +224,8 @@ def policy_action(observations, memory, env) -> List:
                             n += 1
 
                         """ The action of i will be the maximum between angles of closest flight and others """
-                        actions[i] = max_multiple_angle
-
+                        actions[i] = calcs.action_from_angle(max_multiple_angle, env.flights[i], env.angle_change)
+    print('actions with policy', actions)
     return actions
 
 
