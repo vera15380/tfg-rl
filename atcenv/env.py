@@ -400,6 +400,87 @@ class Environment(gym.Env):
             self.viewer.add_onetime(circle)
             self.viewer.add_onetime(alert_zone_circle)
 
+            # ZERO
+            if i == 0:
+                zero = LineString(
+                    [(f.position.x - 1000, f.position.y - 1000), (f.position.x - 6000, f.position.y - 1000),
+                     (f.position.x - 6000, f.position.y - 6000), (f.position.x - 6000, f.position.y - 11000),
+                     (f.position.x - 1000, f.position.y - 11000), (f.position.x - 1000, f.position.y - 1000)])
+                self.viewer.draw_polyline(zero.coords, linewidth=1, color=WHITE)
+
+            # ONE
+            if i == 1:
+                one = LineString([
+                    (f.position.x - 1000, f.position.y - 1000), (f.position.x - 1000, f.position.y - 11000)])
+                self.viewer.draw_polyline(one.coords, linewidth=1, color=WHITE)
+
+            # TWO
+            if i == 2:
+                two = LineString(
+                    [(f.position.x - 6000, f.position.y - 1000), (f.position.x - 1000, f.position.y - 1000),
+                     (f.position.x - 1000, f.position.y - 6000), (f.position.x - 6000, f.position.y - 6000),
+                     (f.position.x - 6000, f.position.y - 11000), (f.position.x - 1000, f.position.y - 11000)])
+                self.viewer.draw_polyline(two.coords, linewidth=1, color=WHITE)
+
+            # THREE
+            if i == 3:
+                three = LineString(
+                    [(f.position.x - 6000, f.position.y - 1000), (f.position.x - 1000, f.position.y - 1000),
+                     (f.position.x - 1000, f.position.y - 6000), (f.position.x - 6000, f.position.y - 6000),
+                     (f.position.x - 1000, f.position.y - 6000), (f.position.x - 1000, f.position.y - 11000),
+                     (f.position.x - 6000, f.position.y - 11000)])
+                self.viewer.draw_polyline(three.coords, linewidth=1, color=WHITE)
+
+            # FOUR
+            if i == 4:
+                four = LineString(
+                    [(f.position.x - 6000, f.position.y - 1000), (f.position.x - 6000, f.position.y - 6000),
+                     (f.position.x - 1000, f.position.y - 6000), (f.position.x - 1000, f.position.y - 1000),
+                     (f.position.x - 1000, f.position.y - 6000), (f.position.x - 1000, f.position.y - 11000)])
+                self.viewer.draw_polyline(four.coords, linewidth=1, color=WHITE)
+
+            # FIVE
+            if i == 5:
+                five = LineString(
+                    [(f.position.x - 1000, f.position.y - 1000), (f.position.x - 6000, f.position.y - 1000),
+                     (f.position.x - 6000, f.position.y - 6000), (f.position.x - 1000, f.position.y - 6000),
+                     (f.position.x - 1000, f.position.y - 11000), (f.position.x - 6000, f.position.y - 11000)])
+                self.viewer.draw_polyline(five.coords, linewidth=1, color=WHITE)
+
+            # SIX
+            if i == 6:
+                five = LineString(
+                    [(f.position.x - 1000, f.position.y - 1000), (f.position.x - 6000, f.position.y - 1000),
+                     (f.position.x - 6000, f.position.y - 6000), (f.position.x - 6000, f.position.y - 11000),
+                     (f.position.x - 1000, f.position.y - 11000), (f.position.x - 1000, f.position.y - 6000),
+                     (f.position.x - 6000, f.position.y - 6000)])
+                self.viewer.draw_polyline(five.coords, linewidth=1, color=WHITE)
+
+            # SEVEN
+            if i == 7:
+                seven = LineString([
+                    (f.position.x - 6000, f.position.y - 1000), (f.position.x - 1000, f.position.y - 1000),
+                    (f.position.x - 1000, f.position.y - 11000)])
+                self.viewer.draw_polyline(seven.coords, linewidth=1, color=WHITE)
+
+            # EIGHT
+            if i == 8:
+                eight = LineString(
+                    [(f.position.x - 1000, f.position.y - 1000), (f.position.x - 6000, f.position.y - 1000),
+                     (f.position.x - 6000, f.position.y - 6000), (f.position.x - 6000, f.position.y - 11000),
+                     (f.position.x - 1000, f.position.y - 11000), (f.position.x - 1000, f.position.y - 6000),
+                     (f.position.x - 6000, f.position.y - 6000), (f.position.x - 1000, f.position.y - 6000),
+                     (f.position.x - 1000, f.position.y - 1000)])
+                self.viewer.draw_polyline(eight.coords, linewidth=1, color=WHITE)
+
+            # NINE
+            if i == 9:
+                nine = LineString(
+                    [(f.position.x - 1000, f.position.y - 11000), (f.position.x - 1000, f.position.y - 1000),
+                     (f.position.x - 6000, f.position.y - 1000), (f.position.x - 6000, f.position.y - 6000),
+                     (f.position.x - 1000, f.position.y - 6000)])
+                self.viewer.draw_polyline(nine.coords, linewidth=1, color=WHITE)
+
         self.viewer.render()
 
     def close(self) -> None:
