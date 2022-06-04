@@ -48,7 +48,8 @@ class Environment(gym.Env):
         :param min_speed: minimum speed of the flights (in kt)
         :param max_episode_len: maximum episode length (in number of steps)
         :param min_distance: pairs of flights which distance is < min_distance are considered in conflict (in nm)
-        :param distance_init_buffer: distance factor used when initialising the enviroment to avoid flights close to conflict and close to the target
+        :param distance_init_buffer: distance factor used when initialising the environment to avoid flights close to
+        conflict and close to the target
         :param kwargs: other arguments of your custom environment
         """
         self.num_flights = num_flights
