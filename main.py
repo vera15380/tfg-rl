@@ -19,7 +19,7 @@ if __name__ == "__main__":
     from atcenv.policy import *
     import numpy as np
 
-    MAX_MEMORY_SIZE = 100
+    MAX_MEMORY_SIZE = 10
     BATCH_SIZE = 3
     GAMMA = 0.95
     TAU = 1
@@ -30,8 +30,9 @@ if __name__ == "__main__":
     TRAINING_EPISODES = 3
     HIDDEN_NEURONS = 256
     TARGET_UPDATE = 1
-    RENDERING_FREQUENCY = 500
+    RENDERING_FREQUENCY = 1
     SHORT_MEMORY_SIZE = 2
+    render = True
 
     if WANDB_USAGE:
         import wandb
@@ -44,7 +45,7 @@ if __name__ == "__main__":
         print_config='--print_config',
         parser_mode='yaml'
     )
-    parser.add_argument('--episodes', type=int, default=10)
+    parser.add_argument('--episodes', type=int, default=1)
     parser.add_argument('--config', action=ActionConfigFile)
     parser.add_class_arguments(Environment, 'env')
 
@@ -124,7 +125,7 @@ if __name__ == "__main__":
             obs = next_obs
             obs = next_obs
 
-            if e % RENDERING_FREQUENCY == 0 or e == args.episodes-1:
+            if (e % RENDERING_FREQUENCY == 0 or e == args.episodes-1) and render:
                 env.render()
                 time.sleep(0.01)
 
