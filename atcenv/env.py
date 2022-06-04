@@ -35,7 +35,7 @@ class Environment(gym.Env):
                  min_distance: Optional[float] = 5.,
                  alert_distance: Optional[float] = 8.,
                  distance_init_buffer: Optional[float] = 5.,
-                 airspeed_change: Optional[int] = 10,
+                 angle_change: Optional[int] = 10,
                  **kwargs):
         """
         Initialises the environment
@@ -67,22 +67,22 @@ class Environment(gym.Env):
 
         self.viewer = None
         self.airspace = None
-        self.flights = [] # list of flights
-        self.conflicts = set()  # set of flights that are in conflict
-        self.alerts = set()  # set of flights that are in alert
-        self.done = set()  # set of flights that reached the target
+        self.flights = []  # list of flights
         self.i = None
+
+        # conflict-related
+        self.conflicts = set()  # set of flights that are in conflict
+        self.alerts = set()     # set of flights that are in alert
+        self.done = set()       # set of flights that reached the target
         self.n_conflicts_step = 0
         self.n_conflicts_episode = 0
+
+        # human policy-related
+        self.angle_change = angle_change
+        self.matrix_real_conflicts_episode = np.full((self.num_flights, self.num_flights), False)
+
+        # reinforcement learning-related
         self.n_neighbours = 2
-        self.airspeed_change = airspeed_change
-        """
-        DISCRETE ACTIONS ____________________________________
-            0- Return bearing and optimal airspeed
-            1- Turn right 45º
-            2- Turn left 45º
-            3- Turn right 90º to ensure will not be any conflict in the following 2min
-        """
         self.num_discrete_actions = 3
         self.observation_space = []
         self.action_space = []
