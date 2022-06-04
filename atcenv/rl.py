@@ -20,7 +20,7 @@ class ReplayBuffer:
         """Add experience to the buffer.
 
         Args:
-            experience: tuple (state, action, reward, done, new_state)
+            experience: tuple (state, action, reward, new_state)
         """
         self.buffer.append(experience)
 
@@ -128,13 +128,13 @@ class DQN:
 
     def learn(self):
         # for now, we are not taking advantage of the prioritized buffer.
-        rew_s, obs_s, actions_s, next_obs_s = self.replay_buffer.sample(self.memory_sample_size)
+        states, actions, rewards, next_states = self.replay_buffer.sample(self.memory_sample_size)
 
         # we convert the batches to torch tensors
-        rew_s = torch.FloatTensor(rew_s).unsqueeze(-1)                       # batch_size, 1
-        obs_s = torch.FloatTensor(np.array(obs_s))                           # batch_size, n_obs
-        actions_s = torch.LongTensor(actions_s).unsqueeze(-1)                # batch_size, 1
-        next_obs_s = torch.FloatTensor(np.array(next_obs_s))                 # batch_size, n_obs
+        rew_s = torch.FloatTensor(rewards).unsqueeze(-1)                      # batch_size, 1
+        obs_s = torch.FloatTensor(np.array(states))                           # batch_size, n_obs
+        actions_s = torch.LongTensor(actions).unsqueeze(-1)                   # batch_size, 1
+        next_obs_s = torch.FloatTensor(np.array(next_states))                 # batch_size, n_obs
         # Get expected Q values from local model
         q_policy = self.policy_net(obs_s).gather(1, actions_s)
         print('policy', q_policy.size())

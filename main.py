@@ -31,6 +31,7 @@ if __name__ == "__main__":
     HIDDEN_NEURONS = 256
     TARGET_UPDATE = 1
     RENDERING_FREQUENCY = 500
+    SHORT_MEMORY_SIZE = 2
 
     if WANDB_USAGE:
         import wandb
@@ -55,7 +56,7 @@ if __name__ == "__main__":
     comparison_env = Environment(**vars(args.env))
 
     # Prioritized replay buffer
-    Experience = collections.namedtuple('Experience', field_names=['reward', 'obs', 'actions', 'next_obs'])
+    Experience = collections.namedtuple('Experience', field_names=['states', 'actions', 'rewards', 'next_states'])
     if WANDB_USAGE:
         wandb.config.update({"max_memory_size": MAX_MEMORY_SIZE, "batch_size": BATCH_SIZE, "gamma": GAMMA, "tau": TAU,
                              "lr": LR, "exploration_max": EXPLORATION_MAX, "exploration_min": EXPLORATION_MIN,
@@ -64,21 +65,26 @@ if __name__ == "__main__":
 
     do_nothing = [0] * comparison_env.num_flights
     replay_buffer = rl.ReplayBuffer(MAX_MEMORY_SIZE)
+    short_memo = rl.ReplayBuffer(SHORT_MEMORY_SIZE)
 
     print('\n*** Filling the Replay Buffer ***')
     for e in tqdm(range(MAX_MEMORY_SIZE//env.num_flights)):
         obs = env.reset()
         done = False
+        short_exp = Experience(env.distances_matrix(), do_nothing, do_nothing, do_nothing)
+        short_memo.append(short_exp)
         while not done:
             previous_distances = env.distances_matrix()
-            actions = policy_action(obs, env)
+            actions = policy_action(obs, short_memo, env)
             rew, next_obs, done = env.step(actions)
             for i in range(0, env.num_flights):
                 if i not in env.done:
                     if len(replay_buffer.buffer) < MAX_MEMORY_SIZE:
-                        experience = Experience(rew[i], obs[i], actions[i], next_obs[i])
+                        experience = Experience(obs[i], actions[i], rew[i], next_obs[i])
                         replay_buffer.append(experience)
 
+            short_exp = Experience(previous_distances, actions, do_nothing, do_nothing)
+            short_memo.append(short_exp)
             obs = next_obs
         env.close()
 
@@ -97,6 +103,7 @@ if __name__ == "__main__":
         done = False
         rew_episode = 0
         while not done:
+            previous_distances = env.distances_matrix()
             actions = []
             for i in range(env.num_flights):
                 action = dqn.select_action(obs)
@@ -107,11 +114,14 @@ if __name__ == "__main__":
 
             for i in range(0, env.num_flights):
                 if i not in env.done:
-                    experience = Experience(rew[i], obs[i], actions[i], next_obs[i])
+                    experience = Experience(obs[i], actions[i], rew[i], next_obs[i])
                     replay_buffer.append(experience)
 
             if len(replay_buffer.buffer) > MAX_MEMORY_SIZE:
                 dqn.learn()
+            short_exp = Experience(previous_distances, actions, do_nothing, do_nothing)
+            short_memo.append(short_exp)
+            obs = next_obs
             obs = next_obs
 
             if e % RENDERING_FREQUENCY == 0 or e == args.episodes-1:
