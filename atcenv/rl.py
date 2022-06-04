@@ -77,7 +77,7 @@ class DQN:
             exploration_decay: also called epsilon decay. Controls how fast nn go from exploration to exploitation.
         """
         self.obs_dim = env.observation_space[0].shape[0]
-        self.action_size = env.action_space[0].n
+        self.action_size = env.action_space[0].shape[0]
         self.n_flights = env.num_flights
         self.n_steps = 0
         self.gamma = gamma
