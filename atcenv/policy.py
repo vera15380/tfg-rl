@@ -225,7 +225,6 @@ def policy_action(observations, memory, env) -> List:
 
                         """ The action of i will be the maximum between angles of closest flight and others """
                         actions[i] = calcs.action_from_angle(max_multiple_angle, env.flights[i], env.angle_change)
-    print('actions with policy', actions)
     return actions
 
 
