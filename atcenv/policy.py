@@ -3,7 +3,7 @@ Policy module
 """
 
 from typing import List
-import Point as Point
+import shapely.geometry.point as Point
 from atcenv import calcs
 from atcenv.definitions import *
 
@@ -71,7 +71,7 @@ def policy_action(observations, memory, env) -> List:
     actions = [0] * env.num_flights
     FirstStepConflict = [False] * env.num_flights
     InConflict = [False] * env.num_flights
-    previous_distances, previous_actions, _, _ = memory.pop()
+    previous_distances, previous_actions = memory.pop()
     current_distances = env.distances_matrix()
 
     """ Creating a matrix with ALL flights and its closest conflicts ordered by time, and updating conflict params """
