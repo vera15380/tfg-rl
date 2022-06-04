@@ -19,17 +19,17 @@ if __name__ == "__main__":
     from atcenv.policy import *
     import numpy as np
 
-    MAX_MEMORY_SIZE = 10
-    BATCH_SIZE = 3
+    MAX_MEMORY_SIZE = 100
+    BATCH_SIZE = 32
     GAMMA = 0.95
     TAU = 1
     LR = 0.1
     EXPLORATION_MAX = 0.9
     EXPLORATION_MIN = 0.1
     EXPLORATION_DECAY = 0.00001
-    TRAINING_EPISODES = 3
+    TRAINING_EPISODES = 300
     HIDDEN_NEURONS = 256
-    TARGET_UPDATE = 1
+    TARGET_UPDATE = 10
     RENDERING_FREQUENCY = 1
     SHORT_MEMORY_SIZE = 2
     render = True
@@ -45,7 +45,7 @@ if __name__ == "__main__":
         print_config='--print_config',
         parser_mode='yaml'
     )
-    parser.add_argument('--episodes', type=int, default=1)
+    parser.add_argument('--episodes', type=int, default=10)
     parser.add_argument('--config', action=ActionConfigFile)
     parser.add_class_arguments(Environment, 'env')
 
