@@ -123,7 +123,6 @@ if __name__ == "__main__":
             short_exp = Experience(previous_distances, actions, do_nothing, do_nothing)
             short_memo.append(short_exp)
             obs = next_obs
-            obs = next_obs
 
             if (e % RENDERING_FREQUENCY == 0 or e == args.episodes-1) and render:
                 env.render()
