@@ -137,10 +137,8 @@ class DQN:
         next_obs_s = torch.FloatTensor(np.array(next_states))                 # batch_size, n_obs
         # Get expected Q values from local model
         q_policy = self.policy_net(obs_s).gather(1, actions_s)
-        print('policy', q_policy.size())
         # Get max predicted Q values (for next states) from target model
         q_next = (self.target_net(next_obs_s).detach()).max(1)[0]
-        print('next', q_next.size())
         # Compute Q targets for current states
         q_target = rew_s + self.gamma * q_next.view(self.memory_sample_size, 1)
 
