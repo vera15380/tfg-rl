@@ -97,7 +97,6 @@ if __name__ == "__main__":
         done = False
         rew_episode = 0
         while not done:
-            # env.render()
             actions = []
             for i in range(env.num_flights):
                 action = dqn.select_action(obs)
@@ -106,7 +105,6 @@ if __name__ == "__main__":
             rew_episode += np.average(rew)
             c_rew, c_obs, c_done = comparison_env.step(do_nothing)
 
-            # comparison_env.render()
             for i in range(0, env.num_flights):
                 if i not in env.done:
                     experience = Experience(rew[i], obs[i], actions[i], next_obs[i])
