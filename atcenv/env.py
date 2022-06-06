@@ -30,11 +30,11 @@ class Environment(gym.Env):
                  min_area: Optional[float] = 125. * 125.,
                  max_speed: Optional[float] = 500.,
                  min_speed: Optional[float] = 400,
-                 max_episode_len: Optional[int] = 300,
+                 max_episode_len: Optional[int] = 350,
                  min_distance: Optional[float] = 5.,
                  alert_distance: Optional[float] = 15.,
                  distance_init_buffer: Optional[float] = 5.,
-                 angle_change: Optional[int] = 5,
+                 angle_change: Optional[int] = 10,
                  **kwargs):
         """
         Initialises the environment
@@ -83,7 +83,7 @@ class Environment(gym.Env):
 
         # reinforcement learning-related
         self.n_neighbours = 2
-        self.num_discrete_actions = 20
+        self.num_discrete_actions = 10
         self.observation_space = []
         self.action_space = []
         for agent in range(self.num_flights):
@@ -142,7 +142,7 @@ class Environment(gym.Env):
                         if abs(self.flights[i].position.distance(self.flights[k].position)) >= self.min_distance:
                             wc = 0
                         conflicts_penalty -= wc
-                reward = track_penalty + conflicts_penalty + n_turn_penalty
+                reward = track_penalty + conflicts_penalty
                 rew_array.append(reward)
             else:
                 rew_array.append(np.NaN)

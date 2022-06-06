@@ -20,21 +20,16 @@ if __name__ == "__main__":
 
     MAX_MEMORY_SIZE = 1000
     BATCH_SIZE = 100
-    GAMMA = 0.9
-    TAU = 1
-    LR = 0.001
-    EPSILON = 0.8
-    TRAINING_EPISODES = 30
-    HIDDEN_NEURONS = 256
-    TARGET_UPDATE = 10
+    GAMMA = 0.95
+    TAU = 0.8
+    LR = 1e-4
+    EPSILON = 0.5
+    TRAINING_EPISODES = 30000
+    HIDDEN_NEURONS = 128
+    TARGET_UPDATE = 1
     RENDERING_FREQUENCY = 50
     SHORT_MEMORY_SIZE = 2
     render = True
-
-    if WANDB_USAGE:
-        import wandb
-        wandb.init(project="dqn", entity="tfg-wero-lidia",
-                   name='')
 
     parser = ArgumentParser(
         prog='Conflict resolution environment',
@@ -55,11 +50,6 @@ if __name__ == "__main__":
 
     # Prioritized replay buffer
     Experience = collections.namedtuple('Experience', field_names=['states', 'actions', 'rewards', 'next_states'])
-    if WANDB_USAGE:
-        wandb.config.update({"max_memory_size": MAX_MEMORY_SIZE, "batch_size": BATCH_SIZE, "gamma": GAMMA, "tau": TAU,
-                             "lr": LR, "exploration_max": EPSILON, "MAX_EPISODES": args.episodes,
-                             "exploration_decay": EPSILON, "training_episodes": TRAINING_EPISODES,
-                             "hidden_neurons": HIDDEN_NEURONS, "n_neighbours": env.n_neighbours})
 
     do_nothing = [0] * comparison_env.num_flights
     replay_buffer = rl.ReplayBuffer(MAX_MEMORY_SIZE)
@@ -94,6 +84,15 @@ if __name__ == "__main__":
     for e in tqdm(range(TRAINING_EPISODES)):
         dqn.learn()
 
+    if WANDB_USAGE:
+        import wandb
+        wandb.init(project="dqn", entity="tfg-wero-lidia",
+                   name="tau=0.8 eps=0.5 gamma=0.95 lr=1e-4 neurons=128 angle change=10º")
+        wandb.config.update({"max_memory_size": MAX_MEMORY_SIZE, "batch_size": BATCH_SIZE, "gamma": GAMMA, "tau": TAU,
+                             "lr": LR, "exploration_max": EPSILON, "MAX_EPISODES": args.episodes,
+                             "exploration_decay": EPSILON, "training_episodes": TRAINING_EPISODES,
+                             "hidden_neurons": HIDDEN_NEURONS, "n_neighbours": env.n_neighbours, "angle_change":
+                                 env.angle_change, "n_actions": env.num_discrete_actions})
     print('\n DQN training while adding new experiences.')
     for e in tqdm(range(args.episodes)):
         n_turns_episode = 0
