@@ -88,7 +88,7 @@ if __name__ == "__main__":
     if WANDB_USAGE:
         import wandb
         wandb.init(project="dqn", entity="tfg-wero-lidia",
-                   name="tau=0.8 eps=0.5 gamma=0.95 lr=1e-4 neurons=128 angle change=5º eps=500 n_actions= 8 w/ alert sector obs tgt updt 100")
+                   name="tau=0.8 eps=0.5 gamma=0.95 lr=1e-4 neurons=128 angle change=5º eps=500 n_actions= 8 w/ alert sector obs tgt updt 100 sector correction v2")
 
         wandb.config.update({"max_memory_size": MAX_MEMORY_SIZE, "batch_size": BATCH_SIZE, "gamma": GAMMA, "tau": TAU,
                              "lr": LR, "exploration_max": EPSILON, "MAX_EPISODES": args.episodes,
