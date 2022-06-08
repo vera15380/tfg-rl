@@ -150,10 +150,10 @@ def safe_turn_angle(env, i: int, j: int) -> float:
 
 
 def sector_assignment(rel_angle):
-    converge = (110 / 360) * u.circle  # 110º
-    head_on = (15 / 360) * u.circle    # 15º
-    overtake = (180 / 360) * u.circle  # 180º
-    if rel_angle > 0:
+    converge = 110 * u.circle/360  # 110º
+    head_on = 15 * u.circle/360  # 15º
+    overtake = 180 * u.circle/360  # 180º
+    if rel_angle >= 0:
         if rel_angle <= head_on:
             sector = 0
         elif head_on < rel_angle <= converge / 2:

@@ -4,7 +4,7 @@ Example
 import time
 import torch
 
-WANDB_USAGE = True
+WANDB_USAGE = False
 WANDB_NOTEBOOK_NAME = "tfg-wero-lidia"
 
 if __name__ == "__main__":
@@ -26,10 +26,10 @@ if __name__ == "__main__":
     EPSILON = 0.5
     TRAINING_EPISODES = 30000
     HIDDEN_NEURONS = 128
-    TARGET_UPDATE = 10
+    TARGET_UPDATE = 100
     RENDERING_FREQUENCY = 50
     SHORT_MEMORY_SIZE = 2
-    render = False
+    render = True
     reward_type = "with_alert"
 
     parser = ArgumentParser(
@@ -88,8 +88,7 @@ if __name__ == "__main__":
     if WANDB_USAGE:
         import wandb
         wandb.init(project="dqn", entity="tfg-wero-lidia",
-                   name="tau=0.8 eps=0.5 gamma=0.95 lr=1e-4 neurons=256 angle change=1º eps=500 n_actions= 10 w/ alert"
-                        "and proportional rew neighbours=2")
+                   name="tau=0.8 eps=0.5 gamma=0.95 lr=1e-4 neurons=128 angle change=5º eps=500 n_actions= 8 w/ alert sector obs tgt updt 100")
 
         wandb.config.update({"max_memory_size": MAX_MEMORY_SIZE, "batch_size": BATCH_SIZE, "gamma": GAMMA, "tau": TAU,
                              "lr": LR, "exploration_max": EPSILON, "MAX_EPISODES": args.episodes,
