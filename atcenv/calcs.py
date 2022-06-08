@@ -153,7 +153,6 @@ def sector_assignment(rel_angle):
     converge = 110 * u.circle/360  # 110º
     head_on = 15 * u.circle/360  # 15º
     overtake = math.pi  # 180º
-    # print(rel_angle, head_on, converge/2, converge, overtake)
     if rel_angle > overtake:
         angle_diff = rel_angle - overtake
         rel_angle = -math.pi + angle_diff
@@ -188,6 +187,8 @@ def relative_angle(x1, y1, x2, y2, track1):
 
 
 def convert_angle(angle):
+    if abs(angle) > u.circle:
+        angle = angle - (angle // u.circle) * u.circle
     if angle > math.pi:
         angle = -(u.circle - angle)
     elif angle < -math.pi:

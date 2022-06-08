@@ -89,7 +89,7 @@ class DQN:
         else:
             self.policy_net, self.target_net = torch.load(f'./target_net/{trained_net}'), \
                                                torch.load(f'./target_net/{trained_net}')
-        self.optimizer = torch.optim.Adam(self.policy_net.parameters(), lr)
+        self.optimizer = torch.optim.AdamW(self.policy_net.parameters(), lr)
         self.loss_func = torch.nn.SmoothL1Loss()
 
     def select_action(self, obs, episode):
