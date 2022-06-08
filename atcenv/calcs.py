@@ -156,21 +156,21 @@ def sector_assignment(rel_angle):
     if rel_angle > 0:
         if rel_angle <= head_on:
             sector = 0
-        elif rel_angle > head_on & rel_angle <= converge / 2:
+        elif head_on < rel_angle <= converge / 2:
             sector = 1
-        elif rel_angle > converge / 2 & rel_angle <= converge:
+        elif converge / 2 < rel_angle <= converge:
             sector = 2
-        elif rel_angle > converge & rel_angle <= overtake:
+        elif converge < rel_angle <= overtake:
             sector = 3
     else:
         rel_angle = abs(rel_angle)
         if rel_angle <= head_on:
             sector = 7
-        elif rel_angle > head_on & rel_angle <= converge / 2:
+        elif head_on < rel_angle <= converge / 2:
             sector = 6
-        elif rel_angle > converge / 2 & rel_angle <= converge:
+        elif converge / 2 < rel_angle <= converge:
             sector = 5
-        elif rel_angle > converge & rel_angle <= overtake:
+        elif converge < rel_angle <= overtake:
             sector = 4
     return sector
 

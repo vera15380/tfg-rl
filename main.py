@@ -26,10 +26,11 @@ if __name__ == "__main__":
     EPSILON = 0.5
     TRAINING_EPISODES = 30000
     HIDDEN_NEURONS = 128
-    TARGET_UPDATE = 1
+    TARGET_UPDATE = 10
     RENDERING_FREQUENCY = 50
     SHORT_MEMORY_SIZE = 2
-    render = True
+    render = False
+    reward_type = "with_alert"
 
     parser = ArgumentParser(
         prog='Conflict resolution environment',
@@ -37,7 +38,7 @@ if __name__ == "__main__":
         print_config='--print_config',
         parser_mode='yaml'
     )
-    parser.add_argument('--episodes', type=int, default=150)
+    parser.add_argument('--episodes', type=int, default=500)
     parser.add_argument('--config', action=ActionConfigFile)
     parser.add_class_arguments(Environment, 'env')
 
@@ -87,12 +88,15 @@ if __name__ == "__main__":
     if WANDB_USAGE:
         import wandb
         wandb.init(project="dqn", entity="tfg-wero-lidia",
-                   name="tau=0.8 eps=0.5 gamma=0.95 lr=1e-4 neurons=128 angle change=10º")
+                   name="tau=0.8 eps=0.5 gamma=0.95 lr=1e-4 neurons=256 angle change=1º eps=500 n_actions= 10 w/ alert"
+                        "and proportional rew neighbours=2")
+
         wandb.config.update({"max_memory_size": MAX_MEMORY_SIZE, "batch_size": BATCH_SIZE, "gamma": GAMMA, "tau": TAU,
                              "lr": LR, "exploration_max": EPSILON, "MAX_EPISODES": args.episodes,
                              "exploration_decay": EPSILON, "training_episodes": TRAINING_EPISODES,
                              "hidden_neurons": HIDDEN_NEURONS, "n_neighbours": env.n_neighbours, "angle_change":
-                                 env.angle_change, "n_actions": env.num_discrete_actions})
+                                 env.angle_change, "n_actions": env.num_discrete_actions, "rew_type": reward_type})
+
     print('\n DQN training while adding new experiences.')
     for e in tqdm(range(args.episodes)):
         n_turns_episode = 0
@@ -141,6 +145,7 @@ if __name__ == "__main__":
         if WANDB_USAGE:
             n_real_conflicts_episode = 0
             n_real_conflicts_episode_without_policy = 0
+            distance_left_to_target = 0
             for i in range(env.num_flights):
                 for j in range(env.num_flights):
                     if env.matrix_real_conflicts_episode[i, j]:
@@ -159,5 +164,7 @@ if __name__ == "__main__":
         comparison_env.close()
 
     print('\nSaving the model')
-    PATH = f'./target_net/eps_dqn{args.episodes}_eps_policy_{TRAINING_EPISODES}_hidden_n_{HIDDEN_NEURONS}'
+    PATH = f'./target_net/eps_dqn{args.episodes}_eps_{EPSILON}_policy_{TRAINING_EPISODES}_hidden_n_{HIDDEN_NEURONS}' \
+           f'_angle_{env.angle_change}_lr_{LR}_gamma_{GAMMA}_tau_{TAU}_time_{time.time()}_n_actions' \
+           f'_{env.num_discrete_actions}'
     torch.save(dqn.target_net.state_dict(), PATH)

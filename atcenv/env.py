@@ -34,7 +34,8 @@ class Environment(gym.Env):
                  min_distance: Optional[float] = 5.,
                  alert_distance: Optional[float] = 15.,
                  distance_init_buffer: Optional[float] = 5.,
-                 angle_change: Optional[int] = 10,
+                 angle_change: Optional[int] = 1,
+                 detection_range: Optional[int] = 30,
                  **kwargs):
         """
         Initialises the environment
@@ -82,12 +83,13 @@ class Environment(gym.Env):
         self.matrix_real_conflicts_episode = np.full((self.num_flights, self.num_flights), False)
 
         # reinforcement learning-related
+        self.detection_range = detection_range * u.nm
         self.n_neighbours = 2
         self.num_discrete_actions = 10
         self.observation_space = []
         self.action_space = []
         for agent in range(self.num_flights):
-            self.observation_space.append(gym.spaces.Box(low=-np.inf, high=np.inf, shape=(10,), dtype=float))
+            self.observation_space.append(gym.spaces.Box(low=-np.inf, high=np.inf, shape=(40,), dtype=float))
             self.action_space.append(gym.spaces.Discrete(self.num_discrete_actions))
 
     def resolution(self, action: List) -> None:
@@ -125,12 +127,10 @@ class Environment(gym.Env):
         rew_array = []
         wot = 1.  # not in optimal track
         wtd = 0.5  # track deviation
-        wnt = -100
         for i in range(self.num_flights):
+            track_penalty = 0
             if i not in self.done:
                 # not in optimal track
-                track_penalty = 0
-                n_turn_penalty = self.flights[i].n_turns * wnt
                 if abs(self.flights[i].drift) > 1e-3:
                     t_ei = abs(self.flights[i].drift) / math.pi
                     track_penalty = - wot - wtd * t_ei
@@ -138,9 +138,15 @@ class Environment(gym.Env):
                 conflicts_penalty = 0
                 for k in range(self.num_flights):
                     if k != i:
-                        wc = 100
-                        if abs(self.flights[i].position.distance(self.flights[k].position)) >= self.min_distance:
-                            wc = 0
+                        wc = 0
+                        conf = 0
+                        if abs(self.flights[i].position.distance(self.flights[k].position)) <= self.min_distance:
+                            wc = 10
+                            conf = self.min_distance - abs(self.flights[i].position.distance(self.flights[k].position))/self.min_distance
+                        if self.min_distance > abs(self.flights[i].position.distance(self.flights[k].position)) <= \
+                                self.alert_distance:
+                            wc = 1
+                            conf = self.alert_distance - abs(self.flights[i].position.distance(self.flights[k].position))/self.alert_distance
                         conflicts_penalty -= wc
                 reward = track_penalty + conflicts_penalty
                 rew_array.append(reward)
@@ -152,6 +158,7 @@ class Environment(gym.Env):
         else:
             rew_array = [0] * self.num_flights
         return rew_array
+
 
     def relative_obs_parameters(self, i: int, j: int) -> List:
         """
@@ -178,6 +185,8 @@ class Environment(gym.Env):
         Returns the observation of each agent
         :return: observation of each agent
         """
+
+        """
         obs_array = []
         # Get ID closest flight
         for i in range(self.num_flights):
@@ -198,6 +207,31 @@ class Environment(gym.Env):
                         neighbours_info[k, :] = self.relative_obs_parameters(i, idx_neighbours[k])
                     else:
                         neighbours_info[k, :] = [np.NaN] * 5
+                final_agent_observation = neighbours_info.flatten()
+            else:
+                final_agent_observation = [np.NaN] * self.observation_space[i].shape[0]
+            # Add the final observation for the agent
+            obs_array.append(final_agent_observation)
+            """
+
+        obs_array = []
+        # Get ID closest flight
+        # get the sector of each flight
+        for i in range(self.num_flights):
+            if i not in self.done:
+                xi = self.flights[i].position.x
+                yi = self.flights[i].position.y
+                tracki = self.flights[i].track
+                neighbours_info = np.zeros([8, 5], dtype=float)
+                for j in range(self.num_flights):
+                    if i != j and j not in self.done:
+                        xj = self.flights[j].position.x
+                        yj = self.flights[j].position.y
+                        distance = self.flights[i].position.distance(self.flights[j].position)
+                        if distance < self.detection_range:
+                            sector = calcs.sector_assignment((calcs.relative_angle(xi, yi, xj, yj, tracki)))
+                            if self.detection_range - distance > self.detection_range - neighbours_info[sector, 1]:
+                                neighbours_info[sector] = self.relative_obs_parameters(i, j)
                 final_agent_observation = neighbours_info.flatten()
             else:
                 final_agent_observation = [np.NaN] * self.observation_space[i].shape[0]
