@@ -60,7 +60,7 @@ class NeuralNetwork(nn.Module):
 
 
 class DQN:
-    def __init__(self, max_memory_size, batch_size, gamma, tau, lr, epsilon, env, replay_buffer, hidden_neurons,
+    def __init__(self, max_memory_size, batch_size, gamma, tau, lr, exploration_max, exploration_min, exploration_decay, env, replay_buffer, hidden_neurons,
                  target_update, max_episodes, trained_net=None):
         """
         Initializes the network and parameters needed for DQN policy.
@@ -78,7 +78,10 @@ class DQN:
         self.n_steps = 0
         self.gamma = gamma
         self.tau = tau
-        self.epsilon = epsilon
+        self.exploration_max = exploration_max
+        self.exploration_min = exploration_min
+        self.exploration_decay = exploration_decay
+        self.exploration_rate = exploration_max
         self.max_episodes = max_episodes
         self.replay_buffer = replay_buffer
         self.memory_sample_size = batch_size
@@ -89,18 +92,19 @@ class DQN:
         else:
             self.policy_net, self.target_net = torch.load(f'./target_net/{trained_net}'), \
                                                torch.load(f'./target_net/{trained_net}')
-        self.optimizer = torch.optim.AdamW(self.policy_net.parameters(), lr)
+        self.optimizer = torch.optim.Adam(self.policy_net.parameters(), lr)
         self.loss_func = torch.nn.SmoothL1Loss()
 
     def select_action(self, obs, episode):
         # epsilon greedy strategy
-        greedy = self.epsilon + (1 - self.epsilon) * (episode + 1) / self.max_episodes
+        self.exploration_rate = self.exploration_min + (self.exploration_max - self.exploration_min) * \
+                                math.exp(-1. * self.n_steps * self.exploration_decay)
 
-        if random.random() > greedy:
+        if random.random() > self.exploration_rate:
             q_eval = self.policy_net.forward(torch.Tensor(obs))
             action = q_eval[0].max(0)[1].cpu().data.item()
         else:
-            action = random.randint(0, self.action_size)
+            action = random.randint(0, self.action_size - 1)
 
         self.n_steps += 1
         return action

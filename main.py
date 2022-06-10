@@ -19,18 +19,20 @@ if __name__ == "__main__":
     import numpy as np
 
     MAX_MEMORY_SIZE = 1000
-    BATCH_SIZE = 100
+    BATCH_SIZE = 32
     GAMMA = 0.95
-    TAU = 0.8
-    LR = 1e-4
-    EPSILON = 0.5
+    TAU = 1
+    LR = 0.0001
+    EXPLORATION_MAX = 0.5
+    EXPLORATION_MIN = 0.1
+    EXPLORATION_DECAY = 0.00001
     TRAINING_EPISODES = 30000
-    HIDDEN_NEURONS = 128
+    HIDDEN_NEURONS = 256
     TARGET_UPDATE = 100
-    RENDERING_FREQUENCY = 50
+    RENDERING_FREQUENCY = 250
     SHORT_MEMORY_SIZE = 2
     render = True
-    reward_type = "with_alert"
+    reward_type = "with_alert5_bearing"
 
     parser = ArgumentParser(
         prog='Conflict resolution environment',
@@ -38,7 +40,7 @@ if __name__ == "__main__":
         print_config='--print_config',
         parser_mode='yaml'
     )
-    parser.add_argument('--episodes', type=int, default=500)
+    parser.add_argument('--episodes', type=int, default=1000)
     parser.add_argument('--config', action=ActionConfigFile)
     parser.add_class_arguments(Environment, 'env')
 
@@ -58,7 +60,7 @@ if __name__ == "__main__":
 
     print('\n*** Filling the Replay Buffer ***')
     for e in tqdm(range(MAX_MEMORY_SIZE//env.num_flights)):
-        obs = env.reset()
+        obs, _ = env.reset()
         done = False
         short_exp = Experience(env.distances_matrix(), do_nothing, do_nothing, do_nothing)
         short_memo.append(short_exp)
@@ -78,8 +80,8 @@ if __name__ == "__main__":
         env.close()
 
     print('\n*** Replay Buffer is now full ***')
-    dqn = rl.DQN(MAX_MEMORY_SIZE, BATCH_SIZE, GAMMA, TAU, LR, EPSILON, env, replay_buffer, HIDDEN_NEURONS,
-                 max_episodes=args.episodes, target_update=TARGET_UPDATE)
+    dqn = rl.DQN(MAX_MEMORY_SIZE, BATCH_SIZE, GAMMA, TAU, LR, EXPLORATION_MAX, EXPLORATION_MIN, EXPLORATION_DECAY, env,
+                 replay_buffer, HIDDEN_NEURONS, max_episodes=args.episodes, target_update=TARGET_UPDATE)
 
     print('\n Training the DQN model with experience.')
     for e in tqdm(range(TRAINING_EPISODES)):
@@ -88,19 +90,21 @@ if __name__ == "__main__":
     if WANDB_USAGE:
         import wandb
         wandb.init(project="dqn", entity="tfg-wero-lidia",
-                   name="w/ alert sector obs tgt updt 100 sector correction v3 Adam W optim")
+                   name="going back to exploration decay, NB obs, not shared rew")
 
         wandb.config.update({"max_memory_size": MAX_MEMORY_SIZE, "batch_size": BATCH_SIZE, "gamma": GAMMA, "tau": TAU,
-                             "lr": LR, "exploration_max": EPSILON, "MAX_EPISODES": args.episodes,
-                             "exploration_decay": EPSILON, "training_episodes": TRAINING_EPISODES,
-                             "hidden_neurons": HIDDEN_NEURONS, "n_neighbours": env.n_neighbours, "angle_change":
-                                 env.angle_change, "n_actions": env.num_discrete_actions, "rew_type": reward_type})
+                             "lr": LR, "exploration_max": EXPLORATION_MAX, "MAX_EPISODES": args.episodes,
+                             "exploration_min": EXPLORATION_MIN, "exploration_decay": EXPLORATION_DECAY,
+                             "training_episodes": TRAINING_EPISODES, "hidden_neurons": HIDDEN_NEURONS, "n_neighbours":
+                                 env.n_neighbours, "angle_change": env.angle_change, "n_actions":
+                                 env.num_discrete_actions, "rew_type": reward_type, "alert_dist": env.alert_distance,
+                             "target_updt": TARGET_UPDATE, "dr": env.detection_range})
 
     print('\n DQN training while adding new experiences.')
     for e in tqdm(range(args.episodes)):
         n_turns_episode = 0
-        obs = env.reset()
-        c_obs = comparison_env.reset()
+        obs, state_env = env.reset()
+        c_obs = comparison_env.comparison_reset(state_env)
         done = False
         rew_episode = 0
         while not done:
@@ -111,7 +115,12 @@ if __name__ == "__main__":
                 action = dqn.select_action(obs, e)
                 actions.append(action)
             rew, next_obs, done = env.step(actions)
-            rew_episode += np.average(rew)
+            rew_without_nan = [x for x in rew if np.isnan(x) == False]
+            if len(rew_without_nan) != 0:
+                rew_average = np.average(rew_without_nan)
+            else:
+                rew_average = 0
+            rew_episode += rew_average
             c_rew, c_obs, c_done = comparison_env.step(do_nothing)
 
             for i in range(0, env.num_flights):
@@ -119,7 +128,7 @@ if __name__ == "__main__":
                     experience = Experience(obs[i], actions[i], rew[i], next_obs[i])
                     replay_buffer.append(experience)
 
-            if len(replay_buffer.buffer) > MAX_MEMORY_SIZE:
+            if len(replay_buffer.buffer) > BATCH_SIZE + 1:
                 loss = dqn.learn()
             short_exp = Experience(previous_distances, actions, do_nothing, do_nothing)
             short_memo.append(short_exp)
@@ -132,19 +141,21 @@ if __name__ == "__main__":
             if WANDB_USAGE:
                 n_turns_step = sum(env.flights[i].n_turns for i in range(env.num_flights))
                 n_turns_episode += n_turns_step
+                distance_left_to_target = 0
                 if env.i == env.max_episode_len:
                     distance_left_to_target = sum(env.flights[i].position.distance(env.flights[i].target) for i in
                                                   range(env.num_flights))
                 wandb.log({'[CONFLICTS] - conflicts/step with policy': env.n_conflicts_step,
                            '[CONFLICTS] - conflicts/step without policy': comparison_env.n_conflicts_step,
                            '[CONFLICTS] - n_aircraft in conflict/step': len(env.conflicts),
-                           '[REWARD] - avg rew/step': np.average(rew),
-                           '[EXTRA] - n_turns taken/step': n_turns_step})
+                           '[REWARD] - avg rew/step': rew_average,
+                           '[EXTRA] - n_turns taken/step': n_turns_step,
+                           '[EXTRA] - exploration rate': dqn.exploration_rate,
+                           '[EXTRA] - DQN loss': loss})
 
         if WANDB_USAGE:
             n_real_conflicts_episode = 0
             n_real_conflicts_episode_without_policy = 0
-            distance_left_to_target = 0
             for i in range(env.num_flights):
                 for j in range(env.num_flights):
                     if env.matrix_real_conflicts_episode[i, j]:
@@ -153,6 +164,8 @@ if __name__ == "__main__":
                         n_real_conflicts_episode_without_policy += 1
             wandb.log({'[CONFLICTS] - conflicts/episode with policy': env.n_conflicts_episode,
                        '[CONFLICTS] - conflicts/episode without policy': comparison_env.n_conflicts_episode,
+                       '[CONFLICTS] - conflicts/episode difference': comparison_env.n_conflicts_episode -
+                                                                     env.n_conflicts_episode,
                        '[REWARD] - avg rew/episode': rew_episode,
                        '[EXTRA] - extra distance': sum(env.flights[i].actual_distance-env.flights[i].planned_distance
                                                        for i in range(env.num_flights)),
@@ -163,7 +176,7 @@ if __name__ == "__main__":
         comparison_env.close()
 
     print('\nSaving the model')
-    PATH = f'./target_net/eps_dqn{args.episodes}_eps_{EPSILON}_policy_{TRAINING_EPISODES}_hidden_n_{HIDDEN_NEURONS}' \
+    PATH = f'./target_net/eps_dqn{args.episodes}_eps_{dqn.exploration_min}_policy_{TRAINING_EPISODES}_hidden_n_{HIDDEN_NEURONS}' \
            f'_angle_{env.angle_change}_lr_{LR}_gamma_{GAMMA}_tau_{TAU}_time_{time.time()}_n_actions' \
            f'_{env.num_discrete_actions}'
     torch.save(dqn.target_net.state_dict(), PATH)
