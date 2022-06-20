@@ -86,12 +86,11 @@ class DQN:
         self.replay_buffer = replay_buffer
         self.memory_sample_size = batch_size
         self.target_update = target_update
-        if trained_net is None:
-            self.policy_net = NeuralNetwork(self.obs_dim, self.action_size, hidden_neurons)
-            self.target_net = NeuralNetwork(self.obs_dim, self.action_size, hidden_neurons)
-        else:
-            self.policy_net, self.target_net = torch.load(f'./target_net/{trained_net}'), \
-                                               torch.load(f'./target_net/{trained_net}')
+        self.policy_net = NeuralNetwork(self.obs_dim, self.action_size, hidden_neurons)
+        self.target_net = NeuralNetwork(self.obs_dim, self.action_size, hidden_neurons)
+        if trained_net is not None:
+            self.policy_net.load_state_dict(torch.load(f'./target_net/{trained_net}'))
+            self.target_net.load_state_dict(torch.load(f'./target_net/{trained_net}'))
         self.optimizer = torch.optim.Adam(self.policy_net.parameters(), lr)
         self.loss_func = torch.nn.SmoothL1Loss()
 
