@@ -34,7 +34,7 @@ class Environment(gym.Env):
                  min_distance: Optional[float] = 5.,
                  alert_distance: Optional[float] = 15.,
                  distance_init_buffer: Optional[float] = 5.,
-                 angle_change: Optional[int] = 5,
+                 angle_change: Optional[int] = 10,
                  detection_range: Optional[int] = 30,
                  **kwargs):
         """
@@ -81,6 +81,8 @@ class Environment(gym.Env):
 
         # human policy-related
         self.angle_change = angle_change * u.circle / 360
+        self.heading_change = angle_change * u.circle / 360
+        self.airspeed_change = 5 * u.kt
         self.matrix_real_conflicts_episode = np.full((self.num_flights, self.num_flights), False)
 
         # reinforcement learning-related
@@ -90,7 +92,7 @@ class Environment(gym.Env):
         self.observation_space = []
         self.action_space = []
         for agent in range(self.num_flights):
-            self.observation_space.append(gym.spaces.Box(low=-np.inf, high=np.inf, shape=(10,), dtype=float))
+            self.observation_space.append(gym.spaces.Box(low=-np.inf, high=np.inf, shape=(40,), dtype=float))
             self.action_space.append(gym.spaces.Discrete(self.num_discrete_actions))
 
     def resolution(self, action: List) -> None:
@@ -101,6 +103,20 @@ class Environment(gym.Env):
         :param action: list of resolution actions assigned to each flight
         :return:
         """
+        """
+        for f, j in zip(self.flights, action):
+            speed_actuation = j // 3 - 1
+            heading_actuation = j % 3 - 1
+            f.speeding = speed_actuation
+            f.turning = heading_actuation
+            f.track += heading_actuation * self.heading_change
+            if f.airspeed + speed_actuation * self.airspeed_change > self.max_speed:
+                f.airspeed = self.max_speed
+            elif f.airspeed + speed_actuation * self.airspeed_change < self.min_speed:
+                f.airspeed = self.min_speed
+            else:
+                f.airspeed += speed_actuation * self.airspeed_change
+        """
 
         for f, j in zip(self.flights, action):
             k = 1
@@ -110,6 +126,10 @@ class Environment(gym.Env):
             elif j == 1:
                 f.track = f.bearing
                 f.n_turns = 1
+            elif j == self.num_discrete_actions - 1:
+                f.airspeed = min(self.max_speed, f.airspeed + self.airspeed_change)
+            elif j == self.num_discrete_actions - 2:
+                f.airspeed = max(self.max_speed, f.airspeed - self.airspeed_change)
             else:
                 # angle change is the change we apply to the track. If it's 10 then the intervals will be spaced 10º,
                 # if it's 5º they are gonna be 5º, 10º, 15º...
@@ -118,6 +138,7 @@ class Environment(gym.Env):
                 turn_angle = (j // 2) * self.angle_change * k
                 f.n_turns = 1
                 f.track += turn_angle
+
         return None
 
     def reward(self) -> List:
@@ -146,9 +167,10 @@ class Environment(gym.Env):
                         wc = 0
                         conf = 0
                         if abs(self.flights[i].position.distance(self.flights[k].position)) <= self.min_distance:
-                            wc = 30 * conf
-                            conf = (self.min_distance - abs(self.flights[i].position.distance(self.flights[k].position)))/self.min_distance
+                            wc = 1500
+                            conf = 1 # (self.min_distance - abs(self.flights[i].position.distance(self.flights[k].position)))/self.min_distance
                             no_conflict_bonus = 0
+                            bearing_bonus = 0
                         if self.min_distance < abs(self.flights[i].position.distance(self.flights[k].position)) <= \
                                 self.alert_distance:
                             wc = 5
@@ -188,32 +210,6 @@ class Environment(gym.Env):
         """
         obs_array = []
         # Get ID closest flight
-        for i in range(self.num_flights):
-            if i not in self.done:
-                tcpa_list = []
-                neighbours_info = np.zeros([self.n_neighbours, 5], dtype=float)
-                for j in range(self.num_flights):
-                    if i != j and j not in self.done:
-                        # Compute t_cpa between flights
-                        tcpa_ij = calcs.t_cpa(self, i, j)
-                        tcpa_list.append(tcpa_ij)
-                idx_neighbours = np.argsort(tcpa_list)[:self.n_neighbours]
-            # Concatenate observation from the agent and the hidden features
-                for k in range(self.n_neighbours):
-                    if len(self.done) == self.num_flights - 1:
-                        neighbours_info[k, :] = [np.NaN] * 5
-                    elif k < self.num_flights - len(self.done) - 1:
-                        neighbours_info[k, :] = self.relative_obs_parameters(i, idx_neighbours[k])
-                    else:
-                        neighbours_info[k, :] = [np.NaN] * 5
-                final_agent_observation = neighbours_info.flatten()
-            else:
-                final_agent_observation = [np.NaN] * self.observation_space[i].shape[0]
-            # Add the final observation for the agent
-            obs_array.append(final_agent_observation)
-        """
-        obs_array = []
-        # Get ID closest flight
         # get the sector of each flight
         for i in range(self.num_flights):
             if i not in self.done:
@@ -235,7 +231,6 @@ class Environment(gym.Env):
                 final_agent_observation = [np.NaN] * self.observation_space[i].shape[0]
             # Add the final observation for the agent
             obs_array.append(final_agent_observation)
-        """
         return np.array(obs_array)
 
     def update_conflicts(self) -> None:

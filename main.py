@@ -25,7 +25,7 @@ if __name__ == "__main__":
         print_config='--print_config',
         parser_mode='yaml'
     )
-    parser.add_argument('--episodes', type=int, default=50000)
+    parser.add_argument('--episodes', type=int, default=200)
     parser.add_argument('--config', action=ActionConfigFile)
     parser.add_class_arguments(Environment, 'env')
 
@@ -38,14 +38,14 @@ if __name__ == "__main__":
     LR = 0.001
     EXPLORATION_MAX = 1
     EXPLORATION_MIN = 0.1
-    EXPLORATION_DECAY = 1e-7
+    EXPLORATION_DECAY = 1e-5
     TRAINING_EPISODES = 0
     HIDDEN_NEURONS = 256
-    TARGET_UPDATE = 100
-    RENDERING_FREQUENCY = 10000
+    TARGET_UPDATE = 10
+    RENDERING_FREQUENCY = 50
     SHORT_MEMORY_SIZE = 2
     render = True
-    reward_type = "CORRECTED_PROPORTIONAL"
+    reward_type = "conflict -1500 other actions"
 
     # init environment
     env = Environment(**vars(args.env))
@@ -92,7 +92,7 @@ if __name__ == "__main__":
     if WANDB_USAGE:
         import wandb
         wandb.init(project="dqn", entity="tfg-wero-lidia",
-                   name="reward corregida sin training previo... 1M 2NB")
+                   name="close env if conflict, conflict -1500, airspeed actions")
 
         wandb.config.update({"max_memory_size": MAX_MEMORY_SIZE, "batch_size": BATCH_SIZE, "gamma": GAMMA, "tau": TAU,
                              "lr": LR, "exploration_max": EXPLORATION_MAX, "MAX_EPISODES": args.episodes,
@@ -134,7 +134,6 @@ if __name__ == "__main__":
             short_exp = Experience(previous_distances, actions, do_nothing, do_nothing)
             short_memo.append(short_exp)
             obs = next_obs
-
             if (e % RENDERING_FREQUENCY == 0 or e == args.episodes-1) and render:
                 env.render()
                 time.sleep(0.05)
@@ -152,7 +151,10 @@ if __name__ == "__main__":
                            '[EXTRA] - n_turns taken/step': n_turns_step,
                            '[EXTRA] - exploration rate': dqn.exploration_rate,
                            '[EXTRA] - DQN loss': loss})
-
+            for x in rew:
+                if abs(x) >= 1000:
+                    done = True
+                    c_done = True
         if WANDB_USAGE:
             n_real_conflicts_episode = 0
             n_real_conflicts_episode_without_policy = 0
@@ -180,3 +182,74 @@ if __name__ == "__main__":
            f'_angle_{env.angle_change}_lr_{LR}_gamma_{GAMMA}_tau_{TAU}_time_{time.time()}_n_actions' \
            f'_{env.num_discrete_actions}'
     torch.save(dqn.target_net.state_dict(), PATH)
+    """
+    for test in tqdm(range(args.episodes)):
+        
+        n_turns_episode = 0                                                                                            
+        obs, state_env = env.reset()                                                                                   
+        c_obs = comparison_env.comparison_reset(state_env)                                                             
+        done = False                                                                                                   
+        rew_episode = 0                                                                                                
+        while not done:                                                                                                
+            loss = np.NaN                                                                                              
+            previous_distances = env.distances_matrix()                                                                
+            actions = []                                                                                               
+            for i in range(env.num_flights):                                                                           
+                action = dqn.select_action(obs, test)                                                                     
+                actions.append(action)                                                                                 
+            rew, next_obs, done = env.step(actions)                                                                    
+            rew_without_nan = [x for x in rew if np.isnan(x) == False]                                                 
+            if len(rew_without_nan) != 0:                                                                              
+                rew_average = np.average(rew_without_nan)                                                              
+            else:                                                                                                      
+                rew_average = 0                                                                                        
+            rew_episode += rew_average                                                                                 
+            c_rew, c_obs, c_done = comparison_env.step(do_nothing)                                                                                                                                                      
+            short_exp = Experience(previous_distances, actions, do_nothing, do_nothing)                                
+            short_memo.append(short_exp)                                                                               
+            obs = next_obs                                                                                                                              
+            env.render()                                                                                           
+            time.sleep(0.05)  
+            
+            conflicts_step_list.add(env.n_conflicts_step)
+            
+            if WANDB_USAGE:                                                                                            
+                n_turns_step = sum(env.flights[i].n_turns for i in range(env.num_flights))                             
+                n_turns_episode += n_turns_step                                                                        
+                distance_left_to_target = 0                                                                            
+                if env.i == env.max_episode_len:                                                                       
+                    distance_left_to_target = sum(env.flights[i].position.distance(env.flights[i].target) for i in     
+                                                  range(env.num_flights))                                              
+                wandb.log({'[CONFLICTS] - conflicts/step with policy': ,                           
+                           '[CONFLICTS] - conflicts/step without policy': comparison_env.n_conflicts_step,             
+                           '[CONFLICTS] - n_aircraft in conflict/step': len(env.conflicts),                            
+                           '[REWARD] - avg rew/step': rew_average,                                                     
+                           '[EXTRA] - n_turns taken/step': n_turns_step,                                               
+                           '[EXTRA] - exploration rate': dqn.exploration_rate,                                         
+                           '[EXTRA] - DQN loss': loss})                                                                
+            for x in rew:                                                                                              
+                if abs(x) >= 1000:                                                                                     
+                    done = True                                                                                        
+                    c_done = True                                                                                      
+        if WANDB_USAGE:                                                                                                
+            n_real_conflicts_episode = 0                                                                               
+            n_real_conflicts_episode_without_policy = 0                                                                
+            for i in range(env.num_flights):                                                                           
+                for j in range(env.num_flights):                                                                       
+                    if env.matrix_real_conflicts_episode[i, j]:                                                        
+                        n_real_conflicts_episode += 1                                                                  
+                    if comparison_env.matrix_real_conflicts_episode[i, j]:                                             
+                        n_real_conflicts_episode_without_policy += 1                                                   
+            wandb.log({'[CONFLICTS] - conflicts/episode with policy': env.n_conflicts_episode,                         
+                       '[CONFLICTS] - conflicts/episode without policy': comparison_env.n_conflicts_episode,           
+                       '[CONFLICTS] - conflicts/episode difference': comparison_env.n_conflicts_episode -              
+                                                                     env.n_conflicts_episode,                          
+                       '[REWARD] - avg rew/episode': rew_episode,                                                      
+                       '[EXTRA] - extra distance': sum(env.flights[i].actual_distance-env.flights[i].planned_distance  
+                                                       for i in range(env.num_flights)),                               
+                       '[EXTRA] - n_turns taken/episode': n_turns_episode,                                             
+                       '[CONFLICTS] - real conflicts/episode': n_real_conflicts_episode_without_policy,                
+                       '[EXTRA] - distance left to target/episode': distance_left_to_target})                          
+        env.close()                                                                                                    
+        comparison_env.close()  
+        """
