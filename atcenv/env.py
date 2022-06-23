@@ -34,7 +34,7 @@ class Environment(gym.Env):
                  min_distance: Optional[float] = 5.,
                  alert_distance: Optional[float] = 15.,
                  distance_init_buffer: Optional[float] = 5.,
-                 angle_change: Optional[int] = 10,
+                 angle_change: Optional[int] = 15,
                  detection_range: Optional[int] = 30,
                  **kwargs):
         """

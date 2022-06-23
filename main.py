@@ -25,7 +25,7 @@ if __name__ == "__main__":
         print_config='--print_config',
         parser_mode='yaml'
     )
-    parser.add_argument('--episodes', type=int, default=200)
+    parser.add_argument('--episodes', type=int, default=50000)
     parser.add_argument('--config', action=ActionConfigFile)
     parser.add_class_arguments(Environment, 'env')
 
@@ -33,16 +33,16 @@ if __name__ == "__main__":
     args = parser.parse_args()
     MAX_MEMORY_SIZE = 10000
     BATCH_SIZE = 1000
-    GAMMA = 0.95
-    TAU = 1
-    LR = 0.001
+    GAMMA = 0.5
+    TAU = 0.5
+    LR = 0.00001
     EXPLORATION_MAX = 1
     EXPLORATION_MIN = 0.1
-    EXPLORATION_DECAY = 1e-5
+    EXPLORATION_DECAY = 1e-6
     TRAINING_EPISODES = 0
     HIDDEN_NEURONS = 256
     TARGET_UPDATE = 10
-    RENDERING_FREQUENCY = 50
+    RENDERING_FREQUENCY = 1000
     SHORT_MEMORY_SIZE = 2
     render = True
     reward_type = "conflict -1500 other actions"
@@ -92,7 +92,7 @@ if __name__ == "__main__":
     if WANDB_USAGE:
         import wandb
         wandb.init(project="dqn", entity="tfg-wero-lidia",
-                   name="close env if conflict, conflict -1500, airspeed actions")
+                   name="gamma=0.5")
 
         wandb.config.update({"max_memory_size": MAX_MEMORY_SIZE, "batch_size": BATCH_SIZE, "gamma": GAMMA, "tau": TAU,
                              "lr": LR, "exploration_max": EXPLORATION_MAX, "MAX_EPISODES": args.episodes,
@@ -180,7 +180,7 @@ if __name__ == "__main__":
     print('\nSaving the model')
     PATH = f'./target_net/eps_dqn{args.episodes}_expmin_{dqn.exploration_min}_policy_{TRAINING_EPISODES}_hidden_n_{HIDDEN_NEURONS}' \
            f'_angle_{env.angle_change}_lr_{LR}_gamma_{GAMMA}_tau_{TAU}_time_{time.time()}_n_actions' \
-           f'_{env.num_discrete_actions}'
+           f'_{env.num_discrete_actions}_1M'
     torch.save(dqn.target_net.state_dict(), PATH)
     """
     for test in tqdm(range(args.episodes)):
