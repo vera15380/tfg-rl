@@ -6,10 +6,8 @@ from typing import List
 from atcenv.definitions import *
 from gym.envs.classic_control import rendering
 from shapely.geometry import LineString
-
 from . import *
 import numpy as np
-
 from . import calcs
 
 WHITE = [255, 255, 255]
@@ -18,6 +16,8 @@ BLUE = [0, 0, 255]
 BLACK = [0, 0, 0]
 RED = [255, 0, 0]
 YELLOW = [255, 255, 0]
+PURPLE = [143, 0, 255]
+NUMBERS = False
 
 
 class Environment(gym.Env):
@@ -32,7 +32,7 @@ class Environment(gym.Env):
                  min_speed: Optional[float] = 400,
                  max_episode_len: Optional[int] = 350,
                  min_distance: Optional[float] = 5.,
-                 alert_distance: Optional[float] = 15.,
+                 alert_distance: Optional[float] = 10.,
                  distance_init_buffer: Optional[float] = 5.,
                  angle_change: Optional[int] = 15,
                  detection_range: Optional[int] = 30,
@@ -78,16 +78,20 @@ class Environment(gym.Env):
         self.done = set()       # set of flights that reached the target
         self.n_conflicts_step = 0
         self.n_conflicts_episode = 0
+        self.movements = 5
 
         # human policy-related
         self.angle_change = angle_change * u.circle / 360
         self.heading_change = angle_change * u.circle / 360
         self.airspeed_change = 5 * u.kt
         self.matrix_real_conflicts_episode = np.full((self.num_flights, self.num_flights), False)
+        self.critical_distance = []
+        self.alert_time = 120
+        self.matrix_real_alerts_episode = np.full((self.num_flights, self.num_flights), False)
+        self.performance_limitation = 180 * (u.circle / 360)  # in radians
 
         # reinforcement learning-related
         self.detection_range = detection_range * u.nm
-        self.n_neighbours = 2
         self.num_discrete_actions = 10
         self.observation_space = []
         self.action_space = []
@@ -103,21 +107,6 @@ class Environment(gym.Env):
         :param action: list of resolution actions assigned to each flight
         :return:
         """
-        """
-        for f, j in zip(self.flights, action):
-            speed_actuation = j // 3 - 1
-            heading_actuation = j % 3 - 1
-            f.speeding = speed_actuation
-            f.turning = heading_actuation
-            f.track += heading_actuation * self.heading_change
-            if f.airspeed + speed_actuation * self.airspeed_change > self.max_speed:
-                f.airspeed = self.max_speed
-            elif f.airspeed + speed_actuation * self.airspeed_change < self.min_speed:
-                f.airspeed = self.min_speed
-            else:
-                f.airspeed += speed_actuation * self.airspeed_change
-        """
-
         for f, j in zip(self.flights, action):
             k = 1
             if j == 0:
@@ -147,40 +136,28 @@ class Environment(gym.Env):
         :return: reward assigned to each agent
         """
         rew_array = []
-        wot = 1.  # not in optimal track
-        wtd = 0.5  # track deviation
         for i in range(self.num_flights):
-            track_penalty = 0
             bearing_bonus = 0
-            conflicts_penalty = 0
-            no_conflict_bonus = 0.5
+            conf_gravity = 0
+            alert_gravity = 0
+
             if i not in self.done:
+                # bonus for staying in bearing
                 if self.flights[i].track == self.flights[i].bearing:
-                    bearing_bonus = 0.01
-                # not in optimal track
-                if abs(self.flights[i].drift) > 1e-3:
-                    t_ei = abs(self.flights[i].drift) / math.pi
-                    track_penalty = - wot - wtd * t_ei
-                # conflicts
-                for k in range(self.num_flights):
-                    if k != i:
-                        wc = 0
-                        conf = 0
-                        if abs(self.flights[i].position.distance(self.flights[k].position)) <= self.min_distance:
-                            wc = 1500
-                            conf = 1 # (self.min_distance - abs(self.flights[i].position.distance(self.flights[k].position)))/self.min_distance
-                            no_conflict_bonus = 0
-                            bearing_bonus = 0
-                        if self.min_distance < abs(self.flights[i].position.distance(self.flights[k].position)) <= \
-                                self.alert_distance:
-                            wc = 5
-                            conf = (self.alert_distance - abs(self.flights[i].position.distance(self.flights[k].position)))/self.alert_distance
-                        conflicts_penalty -= wc * conf
-                reward = track_penalty + conflicts_penalty + bearing_bonus + no_conflict_bonus
+                    bearing_bonus = 0.1
+                # penalty for having a conflict
+                if self.flights[i].distance_to_closest_flight < self.min_distance:
+                    conf_gravity = (self.min_distance - self.flights[i].distance_to_closest_flight) / self.min_distance
+                # penalty for being in alert zone
+                elif self.flights[i].distance_to_closest_flight < self.alert_distance:
+                    alert_gravity = (self.min_distance - self.flights[i].distance_to_closest_flight) / self.min_distance
+
+                # total reward
+                reward = bearing_bonus - 10 * conf_gravity - 1 * alert_gravity
                 rew_array.append(reward)
             else:
+                # if flight is done, no reward.
                 rew_array.append(np.NaN)
-
         return rew_array
 
     def relative_obs_parameters(self, i: int, j: int) -> List:
@@ -195,17 +172,18 @@ class Environment(gym.Env):
         v_agent = self.flights[i].airspeed
         v_flight = self.flights[j].airspeed
 
-        rel_distance = ((((x_agent - x_flight) ** 2) + ((y_agent - y_flight) ** 2)) ** 0.5)
-        rel_airspeed = v_agent - v_flight
+        rel_distance = ((((x_agent - x_flight) ** 2) + ((y_agent - y_flight) ** 2)) ** 0.5) / self.min_distance
+        rel_airspeed = (self.max_speed - (v_agent - v_flight)) / (self.max_speed - self.min_speed)
         rel_angle = calcs.relative_angle(x_agent, y_agent, x_flight, y_flight, self.flights[i].track)
         t_cpa = calcs.t_cpa(self, i, j) / 60  # in minutes
-        d_cpa = calcs.d_cpa(self, i, j)
+        d_cpa = calcs.d_cpa(self, i, j) / self.min_distance
         parameters = [t_cpa, d_cpa, rel_distance, rel_angle, rel_airspeed]
         return parameters
 
     def observation(self) -> np.ndarray:
         """
-        Returns the observation of each agent
+        Returns the observation of each agent. Detects the closest flight within a detection range and a sector that
+        depends on the relative angle from agent to intrusive flight.
         :return: observation of each agent
         """
         obs_array = []
@@ -216,19 +194,33 @@ class Environment(gym.Env):
                 xi = self.flights[i].position.x
                 yi = self.flights[i].position.y
                 tracki = self.flights[i].track
-                neighbours_info = np.zeros([8, 5], dtype=float)
+                # when not detected, obs=99999, the other flights are far away, so it is a high number.
+                neighbours_info = np.ones([8, 5], dtype=float) * 99999
+
                 for j in range(self.num_flights):
                     if i != j and j not in self.done:
                         xj = self.flights[j].position.x
                         yj = self.flights[j].position.y
+
+                        # compute distance between flights
                         distance = self.flights[i].position.distance(self.flights[j].position)
+
+                        # if the flight is in detection range.
                         if distance < self.detection_range:
+
+                            # assign sector.
                             sector = calcs.sector_assignment((calcs.relative_angle(xi, yi, xj, yj, tracki)))
+
+                            # if the flight is closer that the current flight saved in this sector.
                             if self.detection_range - distance > self.detection_range - neighbours_info[sector, 1]:
+
+                                # save info of the flight
                                 neighbours_info[sector] = self.relative_obs_parameters(i, j)
                 final_agent_observation = neighbours_info.flatten()
             else:
+                # if the flight is done, no obs.
                 final_agent_observation = [np.NaN] * self.observation_space[i].shape[0]
+
             # Add the final observation for the agent
             obs_array.append(final_agent_observation)
         return np.array(obs_array)
@@ -248,13 +240,20 @@ class Environment(gym.Env):
                 for j in range(i + 1, self.num_flights):
                     if j not in self.done:
                         distance = self.flights[i].position.distance(self.flights[j].position)
+                        distance_NM = distance * u.m
+                        self.critical_distance.append(distance_NM)
+
                         if distance < self.min_distance:
                             self.conflicts.update((i, j))
                             self.n_conflicts_step += 1
                             self.n_conflicts_episode += 1
                             self.matrix_real_conflicts_episode[i, j] = True
-                            self.flights[i].is_in_conflict = 1
-                            self.flights[j].is_in_conflict = 1
+
+                        if distance < self.flights[i].distance_to_closest_flight:
+                            self.flights[i].distance_to_closest_flight = distance
+
+                        if distance < self.flights[j].distance_to_closest_flight:
+                            self.flights[j].distance_to_closest_flight = distance
 
     def update_alerts(self) -> None:
         """
@@ -315,7 +314,7 @@ class Environment(gym.Env):
         :return: observation, reward, done status and other information
         """
         for i in range(self.num_flights):
-            self.flights[i].is_in_conflict = 0
+            self.flights[i].distance_to_closest_flight = 10e9
         # apply resolution actions
         self.resolution(action)
 
@@ -356,6 +355,7 @@ class Environment(gym.Env):
         # create random airspace
         self.airspace = Airspace.random(self.min_area, self.max_area)
         state_env = random.getstate()
+
         # create random flights
         self.flights = []
         tol = self.distance_init_buffer * self.tol
@@ -381,12 +381,14 @@ class Environment(gym.Env):
         self.n_conflicts_step = 0
         self.n_conflicts_episode = 0
         self.matrix_real_conflicts_episode = np.full((self.num_flights, self.num_flights), False)
+        self.critical_distance = []
+
         # return initial observation
         return self.observation(), state_env
 
     def comparison_reset(self, state) -> np.ndarray:
         """
-        Resets the environment and returns initial observation
+        Resets the comparison environment so that it is the same as the original and returns initial observation
         :return: initial observation
         """
         random.setstate(state)  # restore state from object 'obj'
@@ -395,6 +397,7 @@ class Environment(gym.Env):
 
         # create random flights
         self.flights = []
+
         tol = self.distance_init_buffer * self.tol
         min_distance = self.distance_init_buffer * self.min_distance
         while len(self.flights) < self.num_flights:
@@ -418,15 +421,16 @@ class Environment(gym.Env):
         self.n_conflicts_step = 0
         self.n_conflicts_episode = 0
         self.matrix_real_conflicts_episode = np.full((self.num_flights, self.num_flights), False)
+        self.critical_distance = []
         # return initial observation
         return self.observation()
 
     def render(self, mode=None) -> None:
         """
-        Renders the environment
-        :param mode: rendering mode
-        :return:
-        """
+            Renders the environment
+            :param mode: rendering mode
+            :return:
+            """
         if self.viewer is None:
             # initialise viewer
             screen_width, screen_height = 600, 600
@@ -465,7 +469,8 @@ class Environment(gym.Env):
             circle = rendering.make_circle(radius=self.min_distance / 2.0,
                                            res=10,
                                            filled=False)
-            circle.add_attr(rendering.Transform(translation=(f.position.x, f.position.y)))
+            circle.add_attr(rendering.Transform(translation=(f.position.x,
+                                                             f.position.y)))
             circle.set_color(*BLUE)
 
             alert_zone_circle = rendering.make_circle(radius=self.alert_distance / 2.0,
@@ -475,6 +480,13 @@ class Environment(gym.Env):
                                                                         f.position.y)))
             alert_zone_circle.set_color(*YELLOW)
 
+            detection_zone_circle = rendering.make_circle(radius=self.detection_range / 2.0,
+                                                          res=10,
+                                                          filled=False)
+            detection_zone_circle.add_attr(rendering.Transform(translation=(f.position.x,
+                                                                            f.position.y)))
+            detection_zone_circle.set_color(*PURPLE)
+
             plan = LineString([f.position, f.target])
             self.viewer.draw_polyline(plan.coords, linewidth=1, color=color)
             prediction = LineString([f.position, f.prediction])
@@ -482,98 +494,99 @@ class Environment(gym.Env):
 
             self.viewer.add_onetime(circle)
             self.viewer.add_onetime(alert_zone_circle)
-
+            self.viewer.add_onetime(detection_zone_circle)
             # ZERO
-            if i == 0:
-                zero = LineString(
-                    [(f.position.x - 1000, f.position.y - 1000), (f.position.x - 6000, f.position.y - 1000),
-                     (f.position.x - 6000, f.position.y - 6000), (f.position.x - 6000, f.position.y - 11000),
-                     (f.position.x - 1000, f.position.y - 11000), (f.position.x - 1000, f.position.y - 1000)])
-                self.viewer.draw_polyline(zero.coords, linewidth=1, color=WHITE)
+            if NUMBERS:
+                if i == 0:
+                    zero = LineString(
+                        [(f.position.x - 1000, f.position.y - 1000), (f.position.x - 6000, f.position.y - 1000),
+                         (f.position.x - 6000, f.position.y - 6000), (f.position.x - 6000, f.position.y - 11000),
+                         (f.position.x - 1000, f.position.y - 11000), (f.position.x - 1000, f.position.y - 1000)])
+                    self.viewer.draw_polyline(zero.coords, linewidth=1, color=WHITE)
 
-            # ONE
-            if i == 1:
-                one = LineString([
-                    (f.position.x - 1000, f.position.y - 1000), (f.position.x - 1000, f.position.y - 11000)])
-                self.viewer.draw_polyline(one.coords, linewidth=1, color=WHITE)
+                # ONE
+                if i == 1:
+                    one = LineString([
+                        (f.position.x - 1000, f.position.y - 1000), (f.position.x - 1000, f.position.y - 11000)])
+                    self.viewer.draw_polyline(one.coords, linewidth=1, color=WHITE)
 
-            # TWO
-            if i == 2:
-                two = LineString(
-                    [(f.position.x - 6000, f.position.y - 1000), (f.position.x - 1000, f.position.y - 1000),
-                     (f.position.x - 1000, f.position.y - 6000), (f.position.x - 6000, f.position.y - 6000),
-                     (f.position.x - 6000, f.position.y - 11000), (f.position.x - 1000, f.position.y - 11000)])
-                self.viewer.draw_polyline(two.coords, linewidth=1, color=WHITE)
+                # TWO
+                if i == 2:
+                    two = LineString(
+                        [(f.position.x - 6000, f.position.y - 1000), (f.position.x - 1000, f.position.y - 1000),
+                         (f.position.x - 1000, f.position.y - 6000), (f.position.x - 6000, f.position.y - 6000),
+                         (f.position.x - 6000, f.position.y - 11000), (f.position.x - 1000, f.position.y - 11000)])
+                    self.viewer.draw_polyline(two.coords, linewidth=1, color=WHITE)
 
-            # THREE
-            if i == 3:
-                three = LineString(
-                    [(f.position.x - 6000, f.position.y - 1000), (f.position.x - 1000, f.position.y - 1000),
-                     (f.position.x - 1000, f.position.y - 6000), (f.position.x - 6000, f.position.y - 6000),
-                     (f.position.x - 1000, f.position.y - 6000), (f.position.x - 1000, f.position.y - 11000),
-                     (f.position.x - 6000, f.position.y - 11000)])
-                self.viewer.draw_polyline(three.coords, linewidth=1, color=WHITE)
+                # THREE
+                if i == 3:
+                    three = LineString(
+                        [(f.position.x - 6000, f.position.y - 1000), (f.position.x - 1000, f.position.y - 1000),
+                         (f.position.x - 1000, f.position.y - 6000), (f.position.x - 6000, f.position.y - 6000),
+                         (f.position.x - 1000, f.position.y - 6000), (f.position.x - 1000, f.position.y - 11000),
+                         (f.position.x - 6000, f.position.y - 11000)])
+                    self.viewer.draw_polyline(three.coords, linewidth=1, color=WHITE)
 
-            # FOUR
-            if i == 4:
-                four = LineString(
-                    [(f.position.x - 6000, f.position.y - 1000), (f.position.x - 6000, f.position.y - 6000),
-                     (f.position.x - 1000, f.position.y - 6000), (f.position.x - 1000, f.position.y - 1000),
-                     (f.position.x - 1000, f.position.y - 6000), (f.position.x - 1000, f.position.y - 11000)])
-                self.viewer.draw_polyline(four.coords, linewidth=1, color=WHITE)
+                # FOUR
+                if i == 4:
+                    four = LineString(
+                        [(f.position.x - 6000, f.position.y - 1000), (f.position.x - 6000, f.position.y - 6000),
+                         (f.position.x - 1000, f.position.y - 6000), (f.position.x - 1000, f.position.y - 1000),
+                         (f.position.x - 1000, f.position.y - 6000), (f.position.x - 1000, f.position.y - 11000)])
+                    self.viewer.draw_polyline(four.coords, linewidth=1, color=WHITE)
 
-            # FIVE
-            if i == 5:
-                five = LineString(
-                    [(f.position.x - 1000, f.position.y - 1000), (f.position.x - 6000, f.position.y - 1000),
-                     (f.position.x - 6000, f.position.y - 6000), (f.position.x - 1000, f.position.y - 6000),
-                     (f.position.x - 1000, f.position.y - 11000), (f.position.x - 6000, f.position.y - 11000)])
-                self.viewer.draw_polyline(five.coords, linewidth=1, color=WHITE)
+                # FIVE
+                if i == 5:
+                    five = LineString(
+                        [(f.position.x - 1000, f.position.y - 1000), (f.position.x - 6000, f.position.y - 1000),
+                         (f.position.x - 6000, f.position.y - 6000), (f.position.x - 1000, f.position.y - 6000),
+                         (f.position.x - 1000, f.position.y - 11000), (f.position.x - 6000, f.position.y - 11000)])
+                    self.viewer.draw_polyline(five.coords, linewidth=1, color=WHITE)
 
-            # SIX
-            if i == 6:
-                five = LineString(
-                    [(f.position.x - 1000, f.position.y - 1000), (f.position.x - 6000, f.position.y - 1000),
-                     (f.position.x - 6000, f.position.y - 6000), (f.position.x - 6000, f.position.y - 11000),
-                     (f.position.x - 1000, f.position.y - 11000), (f.position.x - 1000, f.position.y - 6000),
-                     (f.position.x - 6000, f.position.y - 6000)])
-                self.viewer.draw_polyline(five.coords, linewidth=1, color=WHITE)
+                # SIX
+                if i == 6:
+                    five = LineString(
+                        [(f.position.x - 1000, f.position.y - 1000), (f.position.x - 6000, f.position.y - 1000),
+                         (f.position.x - 6000, f.position.y - 6000), (f.position.x - 6000, f.position.y - 11000),
+                         (f.position.x - 1000, f.position.y - 11000), (f.position.x - 1000, f.position.y - 6000),
+                         (f.position.x - 6000, f.position.y - 6000)])
+                    self.viewer.draw_polyline(five.coords, linewidth=1, color=WHITE)
 
-            # SEVEN
-            if i == 7:
-                seven = LineString([
-                    (f.position.x - 6000, f.position.y - 1000), (f.position.x - 1000, f.position.y - 1000),
-                    (f.position.x - 1000, f.position.y - 11000)])
-                self.viewer.draw_polyline(seven.coords, linewidth=1, color=WHITE)
+                # SEVEN
+                if i == 7:
+                    seven = LineString([
+                        (f.position.x - 6000, f.position.y - 1000), (f.position.x - 1000, f.position.y - 1000),
+                        (f.position.x - 1000, f.position.y - 11000)])
+                    self.viewer.draw_polyline(seven.coords, linewidth=1, color=WHITE)
 
-            # EIGHT
-            if i == 8:
-                eight = LineString(
-                    [(f.position.x - 1000, f.position.y - 1000), (f.position.x - 6000, f.position.y - 1000),
-                     (f.position.x - 6000, f.position.y - 6000), (f.position.x - 6000, f.position.y - 11000),
-                     (f.position.x - 1000, f.position.y - 11000), (f.position.x - 1000, f.position.y - 6000),
-                     (f.position.x - 6000, f.position.y - 6000), (f.position.x - 1000, f.position.y - 6000),
-                     (f.position.x - 1000, f.position.y - 1000)])
-                self.viewer.draw_polyline(eight.coords, linewidth=1, color=WHITE)
+                # EIGHT
+                if i == 8:
+                    eight = LineString(
+                        [(f.position.x - 1000, f.position.y - 1000), (f.position.x - 6000, f.position.y - 1000),
+                         (f.position.x - 6000, f.position.y - 6000), (f.position.x - 6000, f.position.y - 11000),
+                         (f.position.x - 1000, f.position.y - 11000), (f.position.x - 1000, f.position.y - 6000),
+                         (f.position.x - 6000, f.position.y - 6000), (f.position.x - 1000, f.position.y - 6000),
+                         (f.position.x - 1000, f.position.y - 1000)])
+                    self.viewer.draw_polyline(eight.coords, linewidth=1, color=WHITE)
 
-            # NINE
-            if i == 9:
-                nine = LineString(
-                    [(f.position.x - 1000, f.position.y - 11000), (f.position.x - 1000, f.position.y - 1000),
-                     (f.position.x - 6000, f.position.y - 1000), (f.position.x - 6000, f.position.y - 6000),
-                     (f.position.x - 1000, f.position.y - 6000)])
-                self.viewer.draw_polyline(nine.coords, linewidth=1, color=WHITE)
+                # NINE
+                if i == 9:
+                    nine = LineString(
+                        [(f.position.x - 1000, f.position.y - 11000), (f.position.x - 1000, f.position.y - 1000),
+                         (f.position.x - 6000, f.position.y - 1000), (f.position.x - 6000, f.position.y - 6000),
+                         (f.position.x - 1000, f.position.y - 6000)])
+                    self.viewer.draw_polyline(nine.coords, linewidth=1, color=WHITE)
 
         self.viewer.render()
 
     def close(self) -> None:
-        """
-        Closes the viewer
-        :return:
-        """
-        if self.viewer is not None:
-            self.viewer.close()
-            self.viewer = None
+            """
+            Closes the viewer
+            :return:
+            """
+            if self.viewer is not None:
+                self.viewer.close()
+                self.viewer = None
 
     def distances_matrix(self):
         dist = np.zeros([self.num_flights, self.num_flights])

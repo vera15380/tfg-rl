@@ -1,0 +1,21 @@
+        for f, j in zip(self.flights, action):
+            k = 1
+            if j == 0:
+                f.n_turns = 0
+                continue
+            elif j == 1:
+                f.angle_goal = calcs.convert_angle(f.track) - calcs.convert_angle(f.bearing)
+                f.track += (m + 1) * (f.angle_goal / self.movements)
+                f.n_turns = 1
+            elif j == self.num_discrete_actions - 1:
+                f.airspeed = min(self.max_speed, (f.airspeed + (m + 1) * (self.airspeed_change/self.movements)))
+            elif j == self.num_discrete_actions - 2:
+                f.airspeed = max(self.max_speed, (f.airspeed - (m + 1) * (self.airspeed_change/self.movements)))
+            else:
+                # angle change is the change we apply to the track. If it's 10 then the intervals will be spaced 10º,
+                # if it's 5º they are gonna be 5º, 10º, 15º...
+                if j % 2 != 0:
+                    k = -1
+                f.angle_goal = (j // 2) * self.angle_change * k
+                f.n_turns = 1
+                f.track += (m + 1) * (f.angle_goal/self.movements)

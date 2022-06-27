@@ -56,11 +56,10 @@ class Flight:
     track: float = field(init=False)
     planned_distance: float = field(init=False)
     actual_distance: float = 0
-    n_turns: int = 0
-    turning: int = 0
-    speeding: int = 0
-    is_in_conflict: int = 0
-    is_in_alert: int = 0
+    action: int = field(init=False)
+    action_step: int = 0
+    angle_goal: int = 0
+    speed_goal: int = 0
     distance_to_closest_flight: int = 10e9
 
     def __post_init__(self) -> None:
