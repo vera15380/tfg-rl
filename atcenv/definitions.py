@@ -60,6 +60,7 @@ class Flight:
     action_step: int = 0
     angle_goal: int = 0
     speed_goal: int = 0
+    n_turns: int = 0
     distance_to_closest_flight: int = 10e9
 
     def __post_init__(self) -> None:

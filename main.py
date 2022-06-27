@@ -14,7 +14,7 @@ import collections
 from atcenv.definitions import *
 from atcenv.policy import *
 
-WANDB_USAGE = False
+WANDB_USAGE = True
 WANDB_NOTEBOOK_NAME = "tfg-wero-lidia"
 random.seed(42)
 if __name__ == "__main__":
