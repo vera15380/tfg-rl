@@ -18,7 +18,7 @@ WANDB_USAGE = True
 WANDB_NOTEBOOK_NAME = "tfg-wero-lidia"
 random.seed(42)
 if __name__ == "__main__":
-    for GAMMA in np.arange(0.8, 1, 0.05):
+    for GAMMA in np.arange(0.5, 1, 0.05):
         # parameter definition
         EPISODES = 1000
         EVALUATION_EPISODES = 0
