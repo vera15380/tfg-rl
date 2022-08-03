@@ -29,6 +29,8 @@ def wandb_per_episode(writer, env, comparison_env, rew_episode, n_turns_episode,
     distance_left_to_target = 0
     if (env.i >= env.max_episode_len and CLOSING) or env.n_conflicts_episode == 0:
         successful_rate = 1
+
+    if env.i >= env.max_episode_len:
         distance_left_to_target = sum(env.flights[i].position.distance(env.flights[i].target) for i in
                                       range(env.num_flights))
     successful_rate_list.append(successful_rate)

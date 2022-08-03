@@ -32,7 +32,7 @@ class Environment(gym.Env):
                  min_speed: Optional[float] = 400,
                  max_episode_len: Optional[int] = 350,
                  min_distance: Optional[float] = 5.,
-                 alert_distance: Optional[float] = 10.,
+                 alert_distance: Optional[float] = 15.,
                  distance_init_buffer: Optional[float] = 5.,
                  angle_change: Optional[int] = 15,
                  detection_range: Optional[int] = 30,
@@ -53,8 +53,8 @@ class Environment(gym.Env):
         :param kwargs: other arguments of your custom environment
         """
         self.num_flights = num_flights
-        self.max_area = max_area * (u.nm ** 2)
-        self.min_area = min_area * (u.nm ** 2)
+        self.max_area = (max_area/10) * num_flights * (u.nm ** 2)
+        self.min_area = (min_area/10) * num_flights * (u.nm ** 2)
         self.max_speed = max_speed * u.kt
         self.min_speed = min_speed * u.kt
         self.min_distance = min_distance * u.nm
@@ -88,7 +88,7 @@ class Environment(gym.Env):
         self.critical_distance = []
         self.alert_time = 120
         self.matrix_real_alerts_episode = np.full((self.num_flights, self.num_flights), False)
-        self.performance_limitation = 180 * (u.circle / 360)  # in radians
+        self.performance_limitation = 45 * (u.circle / 360)  # in radians
 
         # reinforcement learning-related
         self.detection_range = detection_range * u.nm
@@ -96,7 +96,7 @@ class Environment(gym.Env):
         self.observation_space = []
         self.action_space = []
         for agent in range(self.num_flights):
-            self.observation_space.append(gym.spaces.Box(low=-np.inf, high=np.inf, shape=(40,), dtype=float))
+            self.observation_space.append(gym.spaces.Box(low=-np.inf, high=np.inf, shape=(45,), dtype=float))
             self.action_space.append(gym.spaces.Discrete(self.num_discrete_actions))
 
     def resolution(self, action: List) -> None:
@@ -117,8 +117,10 @@ class Environment(gym.Env):
                 f.n_turns = 1
             elif j == self.num_discrete_actions - 1:
                 f.airspeed = min(self.max_speed, f.airspeed + self.airspeed_change)
+                f.n_turns = 0
             elif j == self.num_discrete_actions - 2:
                 f.airspeed = max(self.max_speed, f.airspeed - self.airspeed_change)
+                f.n_turns = 0
             else:
                 # angle change is the change we apply to the track. If it's 10 then the intervals will be spaced 10º,
                 # if it's 5º they are gonna be 5º, 10º, 15º...
@@ -150,7 +152,7 @@ class Environment(gym.Env):
                     conf_gravity = (self.min_distance - self.flights[i].distance_to_closest_flight) / self.min_distance
                 # penalty for being in alert zone
                 elif self.flights[i].distance_to_closest_flight < self.alert_distance:
-                    alert_gravity = (self.min_distance - self.flights[i].distance_to_closest_flight) / self.min_distance
+                    alert_gravity = (self.alert_distance - self.flights[i].distance_to_closest_flight) / self.alert_distance
 
                 # total reward
                 reward = bearing_bonus - 10 * conf_gravity - 1 * alert_gravity
@@ -195,7 +197,7 @@ class Environment(gym.Env):
                 yi = self.flights[i].position.y
                 tracki = self.flights[i].track
                 # when not detected, obs=99999, the other flights are far away, so it is a high number.
-                neighbours_info = np.ones([8, 5], dtype=float) * 99999
+                neighbours_info = np.ones([9, 5], dtype=float) * 99999
 
                 for j in range(self.num_flights):
                     if i != j and j not in self.done:
@@ -216,6 +218,10 @@ class Environment(gym.Env):
 
                                 # save info of the flight
                                 neighbours_info[sector] = self.relative_obs_parameters(i, j)
+                        neighbours_info[8] = [self.flights[i].track, self.flights[i].bearing,
+                                              self.flights[i].position.distance(self.flights[i].target)/self.min_distance,
+                                              (self.max_speed - self.flights[i].airspeed)/(self.max_speed-self.min_speed),
+                                              self.flights[i].distance_to_closest_flight/self.min_distance]
                 final_agent_observation = neighbours_info.flatten()
             else:
                 # if the flight is done, no obs.

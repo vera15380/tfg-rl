@@ -15,29 +15,30 @@ from atcenv.definitions import *
 from atcenv.policy import *
 
 WANDB_USAGE = True
-WANDB_NOTEBOOK_NAME = "tfg-wero-lidia"
+WANDB_NOTEBOOK_NAME = "emc_upc"
 random.seed(42)
+array = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 0.96, 0.97, 0.98, 0.99, 1]
 if __name__ == "__main__":
-    for GAMMA in np.arange(0.7, 1, 0.05):
+    for GAMMA in array:
         # parameter definition
-        EPISODES = 1000
-        EVALUATION_EPISODES = 0
-        MAX_MEMORY_SIZE = 1000
-        BATCH_SIZE = 100
-
-        TAU = 1
+        EPISODES = 100
+        EVALUATION_EPISODES = 1
+        MAX_MEMORY_SIZE = 10
+        BATCH_SIZE = 1
+        # GAMMA = 0.75
+        TAU = 0.1
         LR = 0.001
         EXPLORATION_MAX = 1
         EXPLORATION_MIN = 0.1
-        EXPLORATION_DECAY = 1e-6
-        TRAINING_EPISODES = 1000
-        HIDDEN_NEURONS = 256
+        EXPLORATION_DECAY = 0.00001
+        TRAINING_EPISODES = 500
+        HIDDEN_NEURONS = 128
         TARGET_UPDATE = 10
-        RENDERING_FREQUENCY = 100
+        RENDERING_FREQUENCY = 1
         render = False
         CLOSING = False
         POLICY = False
-        reward_type = "conflict -1500 other actions"
+        reward_type = "conflict -10 other actions"
 
         parser = ArgumentParser(
             prog='Conflict resolution environment',
@@ -62,23 +63,28 @@ if __name__ == "__main__":
         replay_buffer = rl.ReplayBuffer(MAX_MEMORY_SIZE)
 
         # dqn initialization
-        dqn = rl.DQN(MAX_MEMORY_SIZE, BATCH_SIZE, GAMMA, TAU, LR, EXPLORATION_MAX, EXPLORATION_MIN, EXPLORATION_DECAY, env,
+        dqn = rl.DQN(MAX_MEMORY_SIZE, BATCH_SIZE, GAMMA, TAU, LR, EXPLORATION_MAX, EXPLORATION_MIN, EXPLORATION_DECAY,
+                     env,
                      replay_buffer, HIDDEN_NEURONS, max_episodes=args.episodes, target_update=TARGET_UPDATE)
         writer_policy = SummaryWriter(comment='policy')
-
         if WANDB_USAGE:
             import wandb
 
-            run = wandb.init(project="dqn", entity="tfg-wero-lidia",
-                            name=f"** gamma={GAMMA}, policy: {POLICY}", reinit=True)
+            run = wandb.init(project="hyperparameter_tuning", entity="emc-upc",
+                             name=f"prueba", reinit=True)
 
-            wandb.config.update({"max_memory_size": MAX_MEMORY_SIZE, "batch_size": BATCH_SIZE, "gamma": GAMMA, "tau": TAU,
+            wandb.config.update({"max_memory_size": MAX_MEMORY_SIZE, "batch_size": BATCH_SIZE, "gamma": GAMMA,
+                                 "tau": TAU,
                                  "lr": LR, "exploration_max": EXPLORATION_MAX, "MAX_EPISODES": args.episodes,
                                  "exploration_min": EXPLORATION_MIN, "exploration_decay": EXPLORATION_DECAY,
-                                 "training_episodes": TRAINING_EPISODES, "hidden_neurons": HIDDEN_NEURONS, "angle_change":
-                                     env.angle_change, "n_actions":
-                                     env.num_discrete_actions, "rew_type": reward_type, "alert_dist": env.alert_distance,
-                                 "target_updt": TARGET_UPDATE, "dr": env.detection_range}, allow_val_change=True)
+                                 "training_episodes": TRAINING_EPISODES, "hidden_neurons": HIDDEN_NEURONS,
+                                 "angle_change": env.angle_change,
+                                 "n_actions": env.num_discrete_actions,
+                                 "rew_type": reward_type,
+                                 "alert_dist": env.alert_distance,
+                                 "target_updt": TARGET_UPDATE, "dr": env.detection_range,
+                                 "detection_dist": env.detection_range,
+                                 "n_flights": env.num_flights}, allow_val_change=True)
         if POLICY:
             # policy application
             print('\n*** TRAINING WITH HUMAN POLICY ***')
@@ -102,9 +108,9 @@ if __name__ == "__main__":
                         if i not in env.done:
                             experience = Experience(obs[i], actions[i], rew[i], next_obs[i])
                             replay_buffer.append(experience)
-                    env.render()
-                    time.sleep(0.03)
-                    if len(replay_buffer.buffer) > BATCH_SIZE + 1:
+                    # env.render()
+                    # time.sleep(0.03)
+                    if len(replay_buffer.buffer) >= MAX_MEMORY_SIZE:
                         # if buffer size is enough, learn.
                         loss = dqn.learn()
 
@@ -113,7 +119,8 @@ if __name__ == "__main__":
                     if WANDB_USAGE:
                         n_turns_step = sum(env.flights[i].n_turns for i in range(env.num_flights))
                         n_turns_episode += n_turns_step
-                        rew_average = wandb_graphs.wandb_per_step(writer_policy, env, comparison_env, n_turns_step, rew, loss, dqn)
+                        rew_average = wandb_graphs.wandb_per_step(writer_policy, env, comparison_env, n_turns_step, rew,
+                                                                  loss, dqn)
                         rew_episode += rew_average
                     obs = next_obs
 
@@ -130,7 +137,7 @@ if __name__ == "__main__":
 
         # saving the trained target neural network
         print('\n *** Saving the model ***')
-        PATH = f'./target_net/eps_dqn{args.episodes}_expmin_{dqn.exploration_min}_policy_{TRAINING_EPISODES}_hidden_n_' \
+        PATH = f'./target_net/eps_dqn{args.episodes}_expmin_{dqn.exploration_min}_policy_{TRAINING_EPISODES}_hidden_n_'\
                f'{HIDDEN_NEURONS}' \
                f'_angle_{env.angle_change}_lr_{LR}_gamma_{GAMMA}_tau_{TAU}_time_{time.time()}_n_actions' \
                f'_{env.num_discrete_actions}_1M'
@@ -141,6 +148,13 @@ if __name__ == "__main__":
 
         successful_rate_list = []
         successful_rate_perc_eval = 0
+        rew_history = []
+        conf_history_ep = []
+        real_conf_history = []
+        min_distance_history = []
+        n_turns_history = []
+        extra_distance_history = []
+        dist_to_target_history = []
         # starting evaluation
         for eval in tqdm(range(EVALUATION_EPISODES)):
             beepy.beep(sound="ready")
@@ -148,21 +162,33 @@ if __name__ == "__main__":
             obs, _ = env.reset()
             successful_rate = 0
             done = False
+            n_turns_episode = 0
+            rew_episode = 0
             while not done:
+                n_turns_step = 0
+                rew_step = 0
                 actions = []
                 for i in range(env.num_flights):
                     action = dqn.select_action(obs, eval)
                     actions.append(action)
                 rew, next_obs, done = env.step(actions)
-
+                rew_without_nan = [x for x in rew if np.isnan(x) == False]
+                if len(rew_without_nan) != 0:
+                    rew_average_step = np.average(rew_without_nan)
+                else:
+                    rew_average_step = 0
+                rew_episode += rew_average_step
                 for i in range(0, env.num_flights):
                     if i not in env.done:
                         experience = Experience(obs[i], actions[i], rew[i], next_obs[i])
                         replay_buffer.append(experience)
 
+                n_turns_step = sum(env.flights[i].n_turns for i in range(env.num_flights))
+                n_turns_episode += n_turns_step
+
                 obs = next_obs
-                env.render()
-                time.sleep(0.1)
+                # env.render()
+                # time.sleep(0.1)
 
             if env.n_conflicts_episode == 0:
                 successful_rate_list.append(1)
@@ -170,11 +196,32 @@ if __name__ == "__main__":
                 successful_rate_list.append(0)
 
             successful_rate_perc_eval = (sum(successful_rate_list) / len(successful_rate_list)) * 100
+            rew_history.append(rew_episode)
+            conf_history_ep.append(env.n_conflicts_episode)
+            n_real_conflicts_episode = 0
+            for i in range(env.num_flights):
+                for j in range(env.num_flights):
+                    if env.matrix_real_conflicts_episode[i, j]:
+                        n_real_conflicts_episode += 1
+            real_conf_history.append(n_real_conflicts_episode)
+            min_distance_history.append(min(env.critical_distance))
+            n_turns_history.append(n_turns_episode)
+            extra_distance_history.append(sum(u.m * (env.flights[i].actual_distance - env.flights[i].planned_distance)
+                                              for i in range(env.num_flights)))
+            dist_to_target_history.append(sum(env.flights[i].position.distance(env.flights[i].target) for i in
+                                              range(env.num_flights)))
             env.close()
             comparison_env.close()
 
         if WANDB_USAGE:
-            wandb.config.update({"success_rate_eval of episodes": successful_rate_perc_eval})
+            wandb.config.update({"success_rate_eval of episodes": successful_rate_perc_eval,
+                                 "avg conf/episode": np.average(conf_history_ep),
+                                 "avg real conf/episode": np.average(real_conf_history),
+                                 "avg rew/episode": np.average(rew_history),
+                                 "avg min distance/ep": np.average(min_distance_history),
+                                 "avg n_turns/ep": np.average(n_turns_history),
+                                 "avg extra dist/ep": np.average(extra_distance_history),
+                                 "avg dist to target/ep": np.average(dist_to_target_history)})
             run.finish()
 
         print(f"The success rate was of: {successful_rate_perc} %")

@@ -18,6 +18,7 @@ from main import WANDB_USAGE
 class ReplayBuffer:
     def __init__(self, capacity: int) -> None:
         self.buffer = deque(maxlen=capacity)
+        self.capacity = capacity
 
     def __len__(self) -> int:
         return len(self.buffer)
@@ -50,60 +51,25 @@ class ReplayBuffer:
         return np.array(states), np.array(actions)
 
 
-class PrioritizedReplayBuffer:
-    def __init__(self, capacity):
-        self.buffer = deque(maxlen=capacity)
-        self.priorities = deque(maxlen=capacity)
-
-    def add(self, experience):
-        self.buffer.append(experience)
-        self.priorities.append(max(self.priorities, default=1))
-
-    def get_probabilities(self, priority_scale):
-        scaled_priorities = np.array(self.priorities) ** priority_scale
-        sample_probabilities = scaled_priorities / sum(scaled_priorities)
-        return sample_probabilities
-
-    def get_importance(self, probabilities):
-        importance = 1 / len(self.buffer) * 1 / probabilities
-        importance_normalized = importance / max(importance)
-        return importance_normalized
-
-    def sample(self, batch_size, priority_scale=1.0):
-        sample_probs = self.get_probabilities(priority_scale)
-        sample_indices = random.choices(range(len(self.buffer)), k=batch_size, weights=sample_probs)
-        probabilities, states, actions, rewards, next_states = zip(*(self.buffer[idx] for idx in sample_indices))
-        importance = self.get_importance(probabilities)
-        return (
-            np.array(probabilities),
-            np.array(states),
-            np.array(actions),
-            np.array(rewards, dtype=np.float32),
-            np.array(next_states),
-        )
-
-    def set_priorities(self, indices, errors, offset=0.1):
-        for i, e in zip(indices, errors):
-            self.priorities[i] = abs(e) + offset
-
-
 class NeuralNetwork(nn.Module):
     def __init__(self, n_obs_individual, n_output, n_hidden):
         super().__init__()
 
         # Inputs to hidden layer linear transformation
         self.input = nn.Linear(n_obs_individual, n_hidden)
-        self.input.weight.data.normal_(0, 0.1)          # initialization
+        self.input.weight.data.normal_(0, 0.1)
         self.hidden = nn.Linear(n_hidden, n_hidden)
-        self.hidden.weight.data.normal_(0, 0.1)         # initialization
+        self.hidden.weight.data.normal_(0, 0.1)
         # output --> action number to output
         self.output = nn.Linear(n_hidden, n_output)
-        self.output.weight.data.normal_(0, 0.1)         # initialization
+        self.output.weight.data.normal_(0, 0.1)
 
     def forward(self, x):
         # Pass the input tensor through each of our operations
         x = self.input(x)
+        x = F.relu(x)
         x = self.hidden(x)
+        x = F.relu(x)
         x = self.output(x)
         x = F.relu(x)
         return x
@@ -212,6 +178,7 @@ class DQN:
         successful_rate_list = []
         cumulative_reward = 0
         do_nothing = [0] * comparison_env.num_flights
+        action_history = np.zeros(env.num_discrete_actions)
         for episode in tqdm(range(EPISODES)):
             obs, state_env = env.reset()
             c_obs = comparison_env.comparison_reset(state_env)
@@ -226,6 +193,7 @@ class DQN:
                 # selecting actions for each flights
                 for i in range(env.num_flights):
                     action = self.select_action(obs, episode)
+                    action_history[action] += 1
                     actions.append(action)
 
                 rew, next_obs, done = env.step(actions)
@@ -237,7 +205,7 @@ class DQN:
                         experience = Experience(obs[i], actions[i], rew[i], next_obs[i])
                         self.replay_buffer.append(experience)
 
-                if len(self.replay_buffer.buffer) > self.memory_sample_size + 1:
+                if len(self.replay_buffer.buffer) >= self.replay_buffer.capacity:
                     # if buffer size is enough, learn.
                     loss = self.learn()
 
@@ -271,7 +239,8 @@ class DQN:
         print(f"Training done. The success rate was of: {successful_rate_perc} %")
 
         if WANDB_USAGE:
-            wandb.config.update({"success_rate of episodes": successful_rate_perc})
+            wandb.config.update({"success_rate of episodes": successful_rate_perc,
+                                 "actions_history": action_history})
 
         writer.close()
         return successful_rate_perc
