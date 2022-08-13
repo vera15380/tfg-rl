@@ -16,15 +16,15 @@ from atcenv.policy import *
 
 WANDB_USAGE = True
 WANDB_NOTEBOOK_NAME = "emc_upc"
-random.seed(42)
-array = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 0.96, 0.97, 0.98, 0.99, 1]
+random.seed(5)
+array = [0.1]
 if __name__ == "__main__":
     for GAMMA in array:
         # parameter definition
-        EPISODES = 100
-        EVALUATION_EPISODES = 1
-        MAX_MEMORY_SIZE = 10
-        BATCH_SIZE = 1
+        EPISODES = 1000
+        EVALUATION_EPISODES = 100
+        MAX_MEMORY_SIZE = 100
+        BATCH_SIZE = 64
         # GAMMA = 0.75
         TAU = 0.1
         LR = 0.001
@@ -71,7 +71,7 @@ if __name__ == "__main__":
             import wandb
 
             run = wandb.init(project="hyperparameter_tuning", entity="emc-upc",
-                             name=f"prueba", reinit=True)
+                             name=f"random seed", reinit=True)
 
             wandb.config.update({"max_memory_size": MAX_MEMORY_SIZE, "batch_size": BATCH_SIZE, "gamma": GAMMA,
                                  "tau": TAU,

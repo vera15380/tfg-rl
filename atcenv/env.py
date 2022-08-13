@@ -586,13 +586,13 @@ class Environment(gym.Env):
         self.viewer.render()
 
     def close(self) -> None:
-            """
-            Closes the viewer
-            :return:
-            """
-            if self.viewer is not None:
-                self.viewer.close()
-                self.viewer = None
+        """
+        Closes the viewer
+        :return:
+        """
+        if self.viewer is not None:
+            self.viewer.close()
+            self.viewer = None
 
     def distances_matrix(self):
         dist = np.zeros([self.num_flights, self.num_flights])
