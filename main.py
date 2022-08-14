@@ -21,16 +21,16 @@ array = [1]
 if __name__ == "__main__":
     for n_flights in array:
         # parameter definition
-        EPISODES = 1000
+        EPISODES = 50000
         EVALUATION_EPISODES = 100
-        MAX_MEMORY_SIZE = 100
+        MAX_MEMORY_SIZE = 10000
         BATCH_SIZE = 64
         GAMMA = 0.98
         TAU = 1
         LR = 0.0001
         EXPLORATION_MAX = 1
         EXPLORATION_MIN = 0.1
-        EXPLORATION_DECAY = 0.0001
+        EXPLORATION_DECAY = 1e-8
         TRAINING_EPISODES = 25000
         HIDDEN_NEURONS = 64
         TARGET_UPDATE = 10
