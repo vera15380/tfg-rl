@@ -17,28 +17,27 @@ from atcenv.policy import *
 WANDB_USAGE = True
 WANDB_NOTEBOOK_NAME = "emc_upc"
 random.seed(5)
-array = [0.1]
+array = [1]
 if __name__ == "__main__":
-    for GAMMA in array:
+    for n_flights in array:
         # parameter definition
-        EPISODES = 1000
+        EPISODES = 50000
         EVALUATION_EPISODES = 100
-        MAX_MEMORY_SIZE = 100
+        MAX_MEMORY_SIZE = 10000
         BATCH_SIZE = 64
-        # GAMMA = 0.75
-        TAU = 0.1
-        LR = 0.001
+        GAMMA = 0.98
+        TAU = 1
+        LR = 0.0001
         EXPLORATION_MAX = 1
         EXPLORATION_MIN = 0.1
-        EXPLORATION_DECAY = 0.00001
-        TRAINING_EPISODES = 500
-        HIDDEN_NEURONS = 128
+        EXPLORATION_DECAY = 1e-8
+        TRAINING_EPISODES = 25000
+        HIDDEN_NEURONS = 64
         TARGET_UPDATE = 10
         RENDERING_FREQUENCY = 1
         render = False
         CLOSING = False
         POLICY = False
-        reward_type = "conflict -10 other actions"
 
         parser = ArgumentParser(
             prog='Conflict resolution environment',
@@ -71,7 +70,7 @@ if __name__ == "__main__":
             import wandb
 
             run = wandb.init(project="hyperparameter_tuning", entity="emc-upc",
-                             name=f"random seed", reinit=True)
+                             name=f"n_flights={env.num_flights}", reinit=True)
 
             wandb.config.update({"max_memory_size": MAX_MEMORY_SIZE, "batch_size": BATCH_SIZE, "gamma": GAMMA,
                                  "tau": TAU,
@@ -80,7 +79,6 @@ if __name__ == "__main__":
                                  "training_episodes": TRAINING_EPISODES, "hidden_neurons": HIDDEN_NEURONS,
                                  "angle_change": env.angle_change,
                                  "n_actions": env.num_discrete_actions,
-                                 "rew_type": reward_type,
                                  "alert_dist": env.alert_distance,
                                  "target_updt": TARGET_UPDATE, "dr": env.detection_range,
                                  "detection_dist": env.detection_range,
@@ -187,8 +185,8 @@ if __name__ == "__main__":
                 n_turns_episode += n_turns_step
 
                 obs = next_obs
-                # env.render()
-                # time.sleep(0.1)
+                env.render()
+                time.sleep(0.1)
 
             if env.n_conflicts_episode == 0:
                 successful_rate_list.append(1)

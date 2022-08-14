@@ -24,7 +24,7 @@ class Environment(gym.Env):
     metadata = {'render.modes': ['rgb_array']}
 
     def __init__(self,
-                 num_flights: int = 10,
+                 num_flights: int = 10, #15,
                  dt: float = 5.,
                  max_area: Optional[float] = 200. * 200.,
                  min_area: Optional[float] = 125. * 125.,
@@ -85,7 +85,7 @@ class Environment(gym.Env):
         self.heading_change = angle_change * u.circle / 360
         self.airspeed_change = 5 * u.kt
         self.matrix_real_conflicts_episode = np.full((self.num_flights, self.num_flights), False)
-        self.critical_distance = []
+        self.critical_distance = [9999999]
         self.alert_time = 120
         self.matrix_real_alerts_episode = np.full((self.num_flights, self.num_flights), False)
         self.performance_limitation = 45 * (u.circle / 360)  # in radians

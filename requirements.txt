@@ -9,3 +9,5 @@ numpy~=1.22.4
 wandb~=0.12.16
 setuptools~=45.2.0
 torchcontrib~=0.0.2
+beepy
+tensorboard==2.9.1
