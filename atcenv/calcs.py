@@ -277,8 +277,9 @@ def SERA_rules_application(env, i, j, angle_i, angle_j, actions, angle_safe_turn
 
 
 def sector_assignment(rel_angle):
-    converge = 135 * u.circle/360  # 110º
-    head_on = 45 * u.circle/360    # 15º
+
+    converge = 110 * u.circle/360  # 110º
+    head_on = 15 * u.circle/360    # 15º
     converge_2 = ((converge - head_on) / 2) + head_on
     overtake = math.pi             # 180º
     if rel_angle > overtake:
@@ -315,8 +316,10 @@ def relative_angle(x1, y1, x2, y2, track1):
 
 
 def convert_angle(angle):
+    # convert angle to 0º corresponding to the track of the aircraft, positive values on the right half (180º) and
+    # negative values on the left
     if abs(angle) > u.circle:
-        angle = angle - (angle // u.circle) * u.circle
+        angle = angle % u.circle
     if angle > math.pi:
         angle = -(u.circle - angle)
     elif angle < -math.pi:
@@ -326,21 +329,33 @@ def convert_angle(angle):
 
 def approx_angle(angle, angle_change):
     # approximates angle to have multiples of angle_change.
-    new_angle = math.ceil(angle / angle_change) * angle_change
+    angle = math.ceil(math.degrees(angle))
+    angle_change = math.ceil(math.degrees(angle_change))
+    if angle >= 0:
+        new_angle = math.ceil(angle / angle_change) * angle_change
+        new_angle = math.radians(new_angle)
+    else:
+        new_angle = -1 * math.ceil(math.ceil(abs(angle) / angle_change) * angle_change)
+        new_angle = math.radians(new_angle)
     return new_angle
 
 
 def action_from_angle(angle, flight, angle_change, num_actions):
+    # convert the angles of the SERA policy to the numbers of actions of DRLT
     if angle == 0:
         action = 0
     elif angle == flight.drift:
         action = 1
     else:
-        angle = approx_angle(angle, angle_change)
-        action = (angle * 2) // angle_change
-        if action < 0:
-            action = abs(action) + 1
-        if action > num_actions - 3:
-            # maximum turn
-            action = num_actions - 3
-    return action
+        angle = math.degrees(approx_angle(angle, angle_change))
+        angle_change = math.degrees(angle_change)
+        if angle >= 0:
+            action = math.ceil(angle * 2) // angle_change
+            if action > num_actions // 2 - 1:
+                action = num_actions // 2 - 1
+        else:
+            action = math.ceil(abs(angle)*2)//angle_change
+            action = action // 2 + 4
+            if action > num_actions - 3:
+                action = num_actions - 3
+    return int(action)

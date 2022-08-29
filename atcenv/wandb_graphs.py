@@ -42,6 +42,14 @@ def wandb_per_episode(writer, env, comparison_env, rew_episode, n_turns_episode,
                 n_real_conflicts_episode += 1
             if comparison_env.matrix_real_conflicts_episode[i, j]:
                 n_real_conflicts_episode_without_policy += 1
+            if not min(env.critical_distance):
+                crit_dist = 9999999
+            else:
+                crit_dist = min(env.critical_distance)
+            if not min(comparison_env.critical_distance):
+                c_crit_dist = 9999999
+            else:
+                c_crit_dist = min(comparison_env.critical_distance)
     wandb.log({'2.1.- conflicts/episode': env.n_conflicts_episode,
                '2.2.- conflicts/episode without DQN': comparison_env.n_conflicts_episode,
                '2.3.- conflicts/episode difference': comparison_env.n_conflicts_episode -
@@ -53,8 +61,8 @@ def wandb_per_episode(writer, env, comparison_env, rew_episode, n_turns_episode,
                '2.7.- real conflicts/episode without DQN': n_real_conflicts_episode_without_policy,
                '2.8.- real conflicts/episode': n_real_conflicts_episode,
                '2.9.- distance left to target/episode': distance_left_to_target * u.m,
-               '2.10.- Minimum separation distance/episode': min(env.critical_distance),
-               '2.11.- Minimum separation distance/episode without DQN': min(comparison_env.critical_distance),
+               '2.10.- Minimum separation distance/episode': crit_dist,
+               '2.11.- Minimum separation distance/episode without DQN': c_crit_dist,
                '2.12.- Episode length': env.i,
                '2.13.- Successful episode (Y/N)': successful_rate,
                '2.14.- Cumulative reward/episode': cumulative_reward})
@@ -70,6 +78,6 @@ def wandb_per_episode(writer, env, comparison_env, rew_episode, n_turns_episode,
     writer.add_scalar('6_real_conflicts/episode', n_real_conflicts_episode, episode)
     writer.add_scalar('7_real_conflicts/episode_without_DQN', n_real_conflicts_episode_without_policy, episode)
     writer.add_scalar('8_distance left to target/episode', distance_left_to_target * u.m, episode)
-    writer.add_scalar('9_Minimum separation distance/episode', min(env.critical_distance), episode)
-    writer.add_scalar('10_Minimum separation distance/episode without DQN', min(comparison_env.critical_distance),
+    writer.add_scalar('9_Minimum separation distance/episode', crit_dist, episode)
+    writer.add_scalar('10_Minimum separation distance/episode without DQN', c_crit_dist,
                       episode)

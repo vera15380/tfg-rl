@@ -54,21 +54,20 @@ class ReplayBuffer:
 class NeuralNetwork(nn.Module):
     def __init__(self, n_obs_individual, n_output, n_hidden):
         super().__init__()
-
         # Inputs to hidden layer linear transformation
         self.input = nn.Linear(n_obs_individual, n_hidden)
-        self.input.weight.data.normal_(0, 0.1)
         self.hidden = nn.Linear(n_hidden, n_hidden)
-        self.hidden.weight.data.normal_(0, 0.1)
+        self.hidden_2 = nn.Linear(n_hidden, n_hidden)
         # output --> action number to output
         self.output = nn.Linear(n_hidden, n_output)
-        self.output.weight.data.normal_(0, 0.1)
 
     def forward(self, x):
         # Pass the input tensor through each of our operations
         x = self.input(x)
         x = F.relu(x)
         x = self.hidden(x)
+        x = F.relu(x)
+        x = self.hidden_2(x)
         x = F.relu(x)
         x = self.output(x)
         x = F.relu(x)
@@ -85,7 +84,7 @@ class DQN:
             max_memory_size: prioritized replay buffer max length
             batch_size: number of random samples taken from replay buffer to train at once.
             gamma: long term reward (1) or short term reward focus (0) (range from 0 to 1)
-            tau:
+            tau: target network update parameter
             lr: learning rate of the optimizer. How quickly the neural network updates the concepts it has learned.
 
         """
